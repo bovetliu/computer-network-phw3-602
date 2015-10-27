@@ -110,11 +110,10 @@ int main(int argc, char *argv[]){
                                 ifstream myfile3;
                                 myfile3.open(cached_doc_mnger.req_paras[initiating_client_socket].filename,ios::in | ios::binary);
                                 string line;
-                                bool tof=false;
+                                bool has_304 = false;
+                                bool has_expiration_header = false;
                                 if(myfile3.is_open()){
                                     int counter = 0;
-                                    bool flag = false;
-                                    
                                     // following while mainly to search 304 or expires header
                                     while( !myfile3.eof() ){
                                         getline(myfile3,line);
@@ -125,26 +124,24 @@ int main(int argc, char *argv[]){
                                             cout << "SERVER: Fetcher sock_fd "<<i <<": for client "<<cached_doc_mnger.requester[i] << ": " << line << endl;
                                         }
                                         counter++;
+                                        
                                         if(line.find("304")!=string::npos)// Check for 304 responses
-                                            tof = true;
+                                            has_304 = true;
                                         string line_cp = line;
                                         //cout << line << endl;
                                         transform(line.begin(), line.end(), line.begin(), ::tolower);
                                         //sample header Expires: Mon, 29 Apr 2013 21:44:55 GMT
-                                        if(line.find("expires:")==0){		// Check for the Expires Field
-                                            flag = true;
+                                        if(line.find("expires:")==0){ // Check for the Expires Field
+                                            has_expiration_header = true;
                                             int pos = 8;
                                             if(line[pos]==' ')
                                                 pos++;
-//                                            stringstream s2;
-//                                            s2 << line.substr(pos);
-//                                            getline(s2,line);
+
                                             line_cp = line.substr(pos,line.length() );
-                                            printf("%s\n", line_cp.c_str());
-                                            //cache[bb].expr_date = line_cp.substr(pos,line_cp.find("GMT")-pos-1);
-//                                            line = line_cp.substr(pos);
+                                            printf("found expires: %s\n", line_cp.c_str());
+
                                             cached_doc_mnger.cache[bb].expr_date = line_cp;
-                                            //cout << cache[bb].expr_date << endl;
+                                            
                                             memset(&temptime, 0, sizeof(struct tm));
                                             strptime(line.c_str(), "%a, %d %b %Y %H:%M:%S ", &temptime);		// Update the Cache Block expires field with received value
                                             cached_doc_mnger.cache[bb].expr = mktime(&temptime);
@@ -152,7 +149,7 @@ int main(int argc, char *argv[]){
                                         }
                                     }
                                     myfile3.close();
-                                    if(!flag){
+                                    if(!has_expiration_header){  // does not has expiration header, 
                                         time(&rawtime);
                                         utc = gmtime(&rawtime);
                                         strftime(time_buf, sizeof(time_buf), "%a, %d %b %Y %H:%M:%S ",utc);	// If Expires field was not present, set the current time as cache block expire time
@@ -166,18 +163,17 @@ int main(int argc, char *argv[]){
                                 cout << "SERVER: **Proxy Server Time**: " << time_buf << "GMT" << endl;
                                 cout << "SERVER: **File Expires Time**: " << cached_doc_mnger.cache[bb].expr_date << endl;
 
-                                if(tof==true){
+                                if(has_304){
                                     if(cached_doc_mnger.req_paras[initiating_client_socket].conditional){	// if 304 response comes, serve from Cache Block and delete the tmp file
                                         remove(cached_doc_mnger.req_paras[initiating_client_socket].filename);
-                                        stringstream s4;
-                                        s4 << bb;
-                                        strcpy(tmpname,s4.str().c_str());
+
+                                        strcpy(tmpname,Utility::castNumberToString(bb).c_str());
                                         strcpy(cached_doc_mnger.req_paras[initiating_client_socket].filename,tmpname);									
                                         cached_doc_mnger.req_paras[initiating_client_socket].del = false;
                                     }
                                 }
 
-                                if(tof==false){					// If it is not 304 response, see if we can write to the cache block assigned, or get a new cache block
+                                if(!has_304){ // If it is not 304 response, see if we can write to the cache block assigned, or get a new cache block
                                     if(cached_doc_mnger.cache[bb].inUse!=1){
                                         if(cached_doc_mnger.cache[bb].inUse>1){
                                             cached_doc_mnger.cache[bb].inUse-=1;
@@ -207,9 +203,9 @@ int main(int argc, char *argv[]){
                                 if(bb!=-1 && cached_doc_mnger.cache[bb].inUse==-2)	// Prepare the cache block and the parameters, remove the tmp file
                                 {
                                     //cout << "Still came here" << endl;
-                                    stringstream s3;
-                                    s3 << bb;
-                                    strcpy(tmpname,s3.str().c_str());
+//                                    stringstream s3;
+//                                    s3 << bb;
+                                    strcpy(tmpname,  Utility::castNumberToString(bb).c_str() );
                                     ofstream myfile4;
                                     myfile4.open(tmpname,ios::out | ios::binary);
                                     myfile4.close();

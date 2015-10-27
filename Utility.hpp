@@ -12,7 +12,7 @@
 // above header is important, most networking programming stucts and MACRO constants such as INET_ADDRSTRLEN are defined within it
 
 #include <stdio.h>
-
+#include <sstream>
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <signal.h>
@@ -98,6 +98,11 @@ public:
         return sockfd;
     }
 
+    static string castNumberToString( int number){
+        stringstream temp_sstream;
+        temp_sstream << number;
+        return temp_sstream.str();
+    }
 
     // the purpose of this function is get valid socket file descriptor
     // return 0, means it is functioning properly

@@ -83,11 +83,11 @@ int main(int argc, char *argv[]){
                         client_count++; // increase client count
                         if(c_sockfd > fdmax)  // updating fdmax
                             fdmax = c_sockfd;
-                        cout << "***************************************************************" << endl;
-                        cout << "SERVER: New client connected at Socket: " << c_sockfd << endl;
+                        cout << "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-" << endl;
+                        cout << "SERVER: New Client at Socket: " << c_sockfd << endl;
                     }
                 }
-                else{
+                else{  // so now,  we all processig, web sockfds, all i here, should be web sockfds
                     if((num_bytes = recv(i,buf,sizeof(buf),0)) <=0){
                         if(num_bytes == 0){ // If received bytes are zero, it means client has disconnected, so remove its allocated resources
                         }

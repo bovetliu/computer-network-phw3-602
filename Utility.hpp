@@ -40,7 +40,7 @@ public:
     Utility();
     ~Utility();
     
-    
+    struct sockaddr_storage client_addr;
         /*
     ** from Beej
     ** packi16() -- store a 16-bit int into a char buffer (like htons())
@@ -62,6 +62,7 @@ public:
         i = ntohs(i);
         return i;
     }
+    
     
     // used code from Kan Zheng, our group member
     static int connect_to_web(char* ipaddr,char* port)

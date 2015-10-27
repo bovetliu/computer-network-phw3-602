@@ -64,6 +64,41 @@ public:
         i = ntohs(i);
         return i;
     }
+    
+    // used code from Kan Zheng, our group member
+    static int connect_to_web(char* ipaddr,char* port)
+    {
+        int sockfd;
+        int rv;
+        struct addrinfo hints, *servinfo, *p;
+        memset(&hints, 0, sizeof hints);
+        hints.ai_family = AF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
+        if ((rv = getaddrinfo(ipaddr, port, &hints, &servinfo)) != 0) {
+            fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+            return -1;
+        }
+        // loop through all the results and connect to the first we can
+        for(p = servinfo; p != NULL; p = p->ai_next) {
+            if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+                perror("client: socket");
+                continue;
+            }
+            if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+                close(sockfd);
+                perror("client: connect");
+                continue;
+            }       
+            break;
+        }
+        if (p == NULL) {
+            fprintf(stderr, "client: failed to connect\n");
+            return -1;
+        }
+        freeaddrinfo(servinfo); // all done with this structure
+        return sockfd;
+    }
+
 
     // the purpose of this function is get valid socket file descriptor
     // return 0, means it is functioning properly

@@ -17,8 +17,10 @@ int BACKLOG;
 
 
 #define SIZE 10
+#define FETCH_TYPE 1
+#define REQUEST_TYPE 0
 
-map<int,int> requester;	// map to store requester of current request
+map<int,int> requester;	// map to store requester of current request, socket_fd : socket_fd
 map<int,int> fetcher;	// map to store fetcher of current requester
 map<int,int> type;		// map to store type of socket : requester/fetcher
 map<int,struct parameters> gold;	// map to store progress of request and important parameters like cache block assigned
@@ -45,7 +47,7 @@ struct cache_block{
 struct parameters{
     int expires;
     int length;
-    int cb;
+    int cb;  // cache_block index
     char filename[200];
     int offset;
     bool del;
@@ -162,18 +164,17 @@ struct info * parse_http_request(char *buf, int num_bytes){
 }
 
 int main(int argc, char *argv[]){
-    struct addrinfo hints,*servinfo, *p;
+
     //char ipstr[INET_ADDRSTRLEN];		//INET6_ADDRSTRLEN for IPv6
     int sockfd,error;
     connection_info server_conn_info;
     Utility::initialize_server(argc, argv, server_conn_info);
-    p = &(server_conn_info.address_info);
     sockfd = server_conn_info.sockfd;
 
     // Initializing the required variables
     char buf[2048],time_buf[256],tmpname[512];
-
-    fd_set master, read_fds, write_fds, master_write;	// Sets for Select Non-Blocking I/O
+    char web_port[3] = {'8','0','\0'};
+    fd_set master, read_fds, write_fds, master_write; // Sets for Select Non-Blocking I/O
     FD_ZERO(&master);
     FD_ZERO(&read_fds);
     FD_ZERO(&write_fds);
@@ -198,34 +199,35 @@ int main(int argc, char *argv[]){
             perror("server: select");
             exit(4);
         }
-        for(i=0; i<=fdmax; i++){
-            if(FD_ISSET(i,&write_fds)){					// Write to file descriptor
-                if(FD_ISSET(i,&master)==false){								// Handle case when client disconnects in middle of transfer
+        for(i = 0; i <= fdmax; i ++){
+            if( FD_ISSET(i,&write_fds) ){ // Write to file descriptor
+                if( FD_ISSET(i,&master) == false){ // Handle case when client disconnects in middle of transfer
                     cout << "SERVER: Client "<< i << ": Disconnected in middle of transfer" << endl;
                     FD_CLR(i,&master);
                     FD_CLR(i,&master_write);
                     close(i);
                     if(gold[i].cb==-1){
-                            if(gold[i].del==true)
-                                remove(gold[i].filename);	// Delete the tmp file
-                        }
-                        else if(gold[i].cb != -1){
-                            bringToFront(gold[i].cb);
-                            cache[gold[i].cb].inUse-=1;		// Decrease the in Use counter by 1
-                        }
-                        continue;
+                        if(gold[i].del==true)
+                            remove(gold[i].filename);	// Delete the tmp file
+                    }
+                    else if(gold[i].cb != -1){
+                        bringToFront(gold[i].cb);
+                        cache[gold[i].cb].inUse-=1;		// Decrease the in Use counter by 1
+                    }
+                    continue;
                 }
                 ifstream myfile1;
-                myfile1.open(gold[i].filename,ios::in | ios::binary); // open the cache file or tmp file
-                if(!myfile1.is_open()){
+                myfile1.open( gold[i].filename ,ios::in | ios::binary); // open the cache file or tmp file
+                if( !myfile1.is_open() ){
                     cout << gold[i].filename << endl;
                     cout << "SOCKET: " << i << " ==> " << "Could Not Open Cache File" << endl;
                     FD_CLR(i,&master_write);
                 }
-                else{
-                    myfile1.seekg((gold[i].offset)*2000,ios::beg);		// Seek the file with the offset in the parameters of the request and increase the offset by 1
+                else{  // opened successfully
+                    //seekg:Set position in input sequence
+                    myfile1.seekg( (gold[i].offset)*2000 , ios::beg); // Seek the file with the offset in the parameters of the request and increase the offset by 1
                     gold[i].offset+=1;
-                    myfile1.read(buf,2000);                  // Read next 512 bytes
+                    myfile1.read(buf,2000);  // Read next 2000 bytes
                     num_bytes = myfile1.gcount();
                     //cout << num_bytes << endl;
                     if(num_bytes!=0){
@@ -249,22 +251,21 @@ int main(int argc, char *argv[]){
                             //cout << "SOCKET: " << i << " ==> " << "Decrease inUse by 1 : " << cache[gold[i].cb].inUse<<endl;
                         }
                     }
-                }
+                } // open successfully ends
                 myfile1.close();
             }
             else if(FD_ISSET(i,&read_fds)){  // Bowei Liu: this block go to line 616, to the end almost
                 if(i==sockfd){  // handle new clients here
                     addr_len = sizeof(client_addr);		// handle new clients here
-                    if( (c_sockfd = accept(sockfd, (struct sockaddr *)&client_addr,&addr_len)) == -1){	// accept a new connection
+                    if( (c_sockfd = accept(sockfd, (struct sockaddr *)&client_addr,&addr_len) ) == -1){	// accept a new connection
                         perror("server: accept");
                     }
                     else{
                         FD_SET(c_sockfd,&master);
-                        type[c_sockfd]=0;
+                        type[c_sockfd] = REQUEST_TYPE;   // type is a map<int, int> used to store requester or fetcher,
                         client_count++;					// increase client count
-                        if(c_sockfd > fdmax)
+                        if(c_sockfd > fdmax)  // updating fdmax
                             fdmax = c_sockfd;
-                        //cout << "SOCKET: " << i << " ==> " << "CLIENT CONNECTED " << c_sockfd << endl;
                         cout << "***************************************************************" << endl;
                         cout << "SERVER: New client connected at Socket: " << c_sockfd << endl;
                     }
@@ -278,18 +279,18 @@ int main(int argc, char *argv[]){
                         }								
                         close(i);
                         FD_CLR(i,&master);
-                        if(type[i]==1){
-                            FD_SET(requester[i],&master_write);		// if it was a fetcher, then start sending back to the requester
-                            //cout << "SOCKET: " << i << " ==> " << "Fetcher Disconnected" << endl;
-                            int j = requester[i];
-                            int bb = gold[j].cb;
+                        if(type[i]== FETCH_TYPE){
+                            FD_SET(requester[i],&master_write);// if it was a fetcher(web server closed tcp now), then start sending back to the requester
+                            
+                            int initiating_client_socket = requester[i];
+                            int bb = gold[initiating_client_socket].cb;
                             if(bb==-1){
                                 // Got No Block return from tmp file
                             }
                             else{
                                 // Copy tmp file to cache block and serve from cache block
                                 ifstream myfile3;
-                                myfile3.open(gold[j].filename,ios::in | ios::binary);
+                                myfile3.open(gold[initiating_client_socket].filename,ios::in | ios::binary);
                                 string line;
                                 bool tof=false;
                                 if(myfile3.is_open()){
@@ -340,13 +341,13 @@ int main(int argc, char *argv[]){
                                 cout << "SERVER: **File Expires Time**: " << cache[bb].expr_date << endl;
 
                                 if(tof==true){
-                                    if(gold[j].conditional){	// if 304 response comes, serve from Cache Block and delete the tmp file
-                                        remove(gold[j].filename);
+                                    if(gold[initiating_client_socket].conditional){	// if 304 response comes, serve from Cache Block and delete the tmp file
+                                        remove(gold[initiating_client_socket].filename);
                                         stringstream s4;
                                         s4 << bb;
                                         strcpy(tmpname,s4.str().c_str());
-                                        strcpy(gold[j].filename,tmpname);									
-                                        gold[j].del = false;
+                                        strcpy(gold[initiating_client_socket].filename,tmpname);									
+                                        gold[initiating_client_socket].del = false;
                                     }
                                 }
 
@@ -357,14 +358,14 @@ int main(int argc, char *argv[]){
                                             int new_cb;
                                             new_cb = getFreeBlock();
                                             if(new_cb==-1){
-                                                gold[j].del = true;
-                                                gold[j].cb = new_cb;
+                                                gold[initiating_client_socket].del = true;
+                                                gold[initiating_client_socket].cb = new_cb;
                                                 bb = new_cb;
                                                 cout << "SERVER: Client " << i << ": Could Not find new free block" << endl;
                                             }
                                             else{
                                                 cout << "SERVER: Client" << i << ": Got new block because earlier was in use and we got a 200" << endl;
-                                                gold[j].cb = new_cb;
+                                                gold[initiating_client_socket].cb = new_cb;
                                                 cache[new_cb].expr = cache[bb].expr;
                                                 cache[new_cb].expr_date = cache[bb].expr_date;
                                                 bb = new_cb;
@@ -387,11 +388,11 @@ int main(int argc, char *argv[]){
                                     myfile4.open(tmpname,ios::out | ios::binary);
                                     myfile4.close();
                                     remove(tmpname);
-                                    rename(gold[j].filename,tmpname);
-                                    strcpy(gold[j].filename,tmpname);
+                                    rename(gold[initiating_client_socket].filename,tmpname);
+                                    strcpy(gold[initiating_client_socket].filename,tmpname);
                                     cache[bb].host_file = string(request[requester[i]]);
                                     whichBlock[cache[bb].host_file]=bb;
-                                    gold[j].del = false;
+                                    gold[initiating_client_socket].del = false;
                                     cache[bb].inUse = 1;
                                 }
                             }
@@ -400,7 +401,7 @@ int main(int argc, char *argv[]){
                             cout << "SERVER: Client " << i << ": Disconnected" << endl;		// check if requester disconnected
                         }
                     }
-                    else if(type[i]==1){
+                    else if(type[i]== FETCH_TYPE){  // num_bytes > 0
                         cout << "WRITING PARTS" << endl;
                         ofstream myfile2;		// Fetcher writes the data into a tmp file for sending back to requester later
                         myfile2.open(gold[requester[i]].filename,ios::out | ios::binary | ios::app);
@@ -412,10 +413,10 @@ int main(int argc, char *argv[]){
                             myfile2.close();
                         }
                     }
-                    else if(type[i]==0){  // close at almost end
-                        struct info* tmp;
-                        tmp = parse_http_request(buf,num_bytes);
-                        request[i] = string(tmp->host)+string(tmp->file);
+                    else if(type[i]== REQUEST_TYPE){  //  this socket_fd is a requester
+                        struct info* temp_request_info;
+                        temp_request_info = parse_http_request(buf,num_bytes);
+                        request[i] = string(temp_request_info->host)+string(temp_request_info->file);
                         cout << "SERVER: Client "<< i << ": GET Request: " << request[i] << endl;
                         int cb = checkCache(request[i]);
                         //cout << "SOCKET: " << i << " ==> " << "First cb" << cb <<endl;
@@ -444,7 +445,7 @@ int main(int argc, char *argv[]){
                             }
                         }
                         if(cb==-1 || expired){
-                            string tmp_str = "GET "+string(tmp->file)+" HTTP/1.0\r\nHost: "+string(tmp->host)+"\r\n\r\n";
+                            string tmp_str = "GET "+string(temp_request_info->file)+" HTTP/1.0\r\nHost: "+string(temp_request_info->host)+"\r\n\r\n";
                             num_bytes = tmp_str.length();
                             strcpy(buf,tmp_str.c_str());
                             if(!expired){
@@ -466,61 +467,39 @@ int main(int argc, char *argv[]){
                             }
                             gold[i].cb = cb;
                             //cout << "SOCKET: " << i << " ==> " << "GOT BLOCK " << gold[i].cb << endl;
-                            int new_socket;
-                            memset(&hints,0,sizeof(hints));		// initializing the hints structure to be given to getaddrinfo
-                            hints.ai_family = AF_INET;
-                            hints.ai_socktype = SOCK_STREAM;
-                            if((error = getaddrinfo(tmp->host, "80", &hints, &servinfo)) != 0){	// get the address info for given IP and PORT number
-                                fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(error));
-                                exit(1);
-                            }
-                            for(p=servinfo; p!=NULL; p=p->ai_next){
-                                if((new_socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol))== -1){	// create the server socket
-                                    perror("server: socket");
-                                    continue;
-                                }
-                                break;
-                            }
-                            if(p==NULL){
-                                fprintf(stderr, "my sock fd: failed to bind\n");
-                                return 2;
-                            }
-                            if( (error = connect(new_socket,p->ai_addr,p->ai_addrlen)) == -1){			// connect to server IP Address and PORT number
-                                perror("server: server connect");
-                            }	
-                            freeaddrinfo(servinfo);
                             
-                            type[new_socket]=1;
-                            fetcher[i] = new_socket;
-                            requester[new_socket] = i;
+                            int new_web_socket = Utility::connect_to_web(temp_request_info->host, web_port);
+                            type[new_web_socket]=FETCH_TYPE;
+                            fetcher[i] = new_web_socket;
+                            requester[new_web_socket] = i;
 
-                            gold[i].del = true;				// setting the parameters of the request
+                            gold[i].del = true; // setting the parameters of the request
                             gold[i].offset = 0;
                             stringstream ss;
-                            int rr = getRandomNumber();		// generate random number for tmp file name
+                            int rr = getRandomNumber();		// generate random number for temp_request_info file name
                             while(checkRand.find(rr) != checkRand.end() ){
-                                rr = (rr+1)%1000000007;		// if requests are at same time the rand() will generate same random number so increment by 1 till we get a new number
+                                rr = (rr+1)%1000000007; // if requests are at same time the rand() will generate same random number so increment by 1 till we get a new number
                             }
                             checkRand[rr]=true;
                             ss << "tmp_"<< rr;
                             strcpy(gold[i].filename,ss.str().c_str());
                             //cout << "SERVER: Client " << i << " ==> " << "Tmp filename " << gold[i].filename << endl;
                             ofstream touch;
-                            touch.open(gold[i].filename,ios::out | ios::binary);		// touch the tmp file
+                            touch.open(gold[i].filename,ios::out | ios::binary); // touch the tmp file
                             if(touch.is_open())
                                 touch.close();
+                            // new_web_socket should be listened
+                            FD_SET(new_web_socket,&master);
+                            if(new_web_socket > fdmax)
+                                fdmax = new_web_socket;
 
-                            FD_SET(new_socket,&master);
-                            if(new_socket > fdmax)
-                                fdmax = new_socket;
-
-                            //cout << "SOCKET: " << i << " ==> " << "new socket created " << new_socket << endl;
-                            cout << "SERVER: Fetcher started at socket " << new_socket << ": for client " << i << endl;
-                            if( (error = send(new_socket,buf,num_bytes,0)) == -1){			// send the get or conditional get request
+                            //cout << "SOCKET: " << i << " ==> " << "new socket created " << new_web_socket << endl;
+                            cout << "SERVER: Fetcher started at socket " << new_web_socket << ": for client " << i << endl;
+                            if( (error = send(new_web_socket,buf,num_bytes,0)) == -1){			// send the get or conditional get request
                                 perror("client: send");
                             }
                         }
-                        free(tmp);
+                        free(temp_request_info);
                     }
                 }
             }

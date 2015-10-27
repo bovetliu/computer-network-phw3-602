@@ -15,160 +15,13 @@ unsigned short int client_count; // global variable to store client count
 int MAXCLIENTS;
 int BACKLOG;
 
-
-#define SIZE 10
-#define FETCH_TYPE 1
-#define REQUEST_TYPE 0
-
-map<int,int> requester;	// map to store requester of current request, socket_fd : socket_fd
-map<int,int> fetcher;	// map to store fetcher of current requester
-map<int,int> type;		// map to store type of socket : requester/fetcher
-map<int,struct parameters> gold;	// map to store progress of request and important parameters like cache block assigned
-map<string,int> whichBlock;	// map to store which cache block belongs to current URL
-map<int,string> request;	// map to store the requested url of current client
-map<int,bool> checkRand;	// map to check if random number generated already exists
-
-// struct to store file name and host name from http request
-struct info{
-    char file[1024];
-    char host[1024];
-};
-
-// struct to store parameters of each cache block
-struct cache_block{
-    int last;
-    int inUse;
-    int expr;
-    string expr_date;
-    string host_file;
-};
-
-// struct to store paremeters of each request
-struct parameters{
-    int expires;
-    int length;
-    int cb;  // cache_block index
-    char filename[200];
-    int offset;
-    bool del;
-    bool conditional;
-};
-
-// declaring cache 
-struct cache_block cache[SIZE];
-
-// initializing cache
-void initCache(){
-    for(int i=0; i<SIZE; i++){
-        cache[i].last=i+1;
-        cache[i].inUse=0;
-    }
-}
-
-// bring the last use block to front of LRU cache
-void bringToFront(int block){
-    if(cache[block].last==1)
-        return;
-    //cout << "Bringing to Front " << block << endl;
-    cache[block].last = 1;
-    for(int i=0; i<SIZE; i++){
-        if(i!=block){
-            cache[i].last++;
-            if(cache[i].last>SIZE)
-                cache[i].last = SIZE;
-        }
-    }
-    return;
-}
-
-// get Free cache block from unused blocks in LRU fashion
-int getFreeBlock(){
-    int end = SIZE;
-    int ans = -1;
-    //for(int i=0; i<SIZE; i++)
-    //	cout << cache[i].last << ",";
-    //cout << endl;
-    while(end>0){
-        for(int i=0; i<SIZE; i++){
-            if(cache[i].last==end && cache[i].inUse==0){
-                ans = i;
-                cache[ans].inUse=-2;
-                //cache[ans].last=1;
-                //cout << "Ans: "<< ans << endl;
-                end=0;
-                break;
-            }
-        }
-        end--;
-    }
-    return ans;
-}
-
-// function to check if the current URL requested exists in cache or not
-int checkCache(string host_file){
-    if(whichBlock.find(host_file)==whichBlock.end()){
-        return -1;
-    }
-    int cb = whichBlock[host_file];
-    if(cache[cb].host_file == host_file)
-        return cb;
-    return -1;
-}
-
-// check if a block in cache is STALE or NOT
-bool isExpired(int cb){
-    time_t raw_time;
-    time(&raw_time);
-    struct tm * utc;
-    utc = gmtime(&raw_time);
-    raw_time = mktime(utc);
-    //cout << "CACHE : " << cache[cb].expr << " :: CURRENT : " << raw_time << endl;
-    if(cache[cb].expr-raw_time>0)
-        return false;
-    return true;
-}
-
-// generate random number with current time as seed
-int getRandomNumber(){
-    srand(time(NULL));
-    return rand();
-}
-
-// function to parse the incoming HTTP request, decodes the File Name and Host Name 
-struct info * parse_http_request(char *buf, int num_bytes){
-    struct info* output = (struct info *)malloc(sizeof(struct info));
-    int i;
-    for(i=0; i<num_bytes; i++){
-        if(buf[i]==' '){
-            i++;
-            break;
-        }
-    }
-    int k=0;
-    output->file[0]='/';
-    if(buf[i+8]=='\r' && buf[i+9]=='\n'){
-        output->file[1]='\0';
-    }
-    else{
-        while(buf[i]!=' ')
-            output->file[k++]=buf[i++];
-        output->file[k]='\0';
-    }
-    i+=1;
-    while(buf[i++]!=' ');
-    k=0;
-    while(buf[i]!='\r')
-        output->host[k++]=buf[i++];
-    output->host[k]='\0';
-    return output;
-}
-
 int main(int argc, char *argv[]){
 
     //char ipstr[INET_ADDRSTRLEN];		//INET6_ADDRSTRLEN for IPv6
     int sockfd,error;
     connection_info server_conn_info;
     Utility::initialize_server(argc, argv, server_conn_info);
+    CachedDocManager cached_doc_mnger;
     sockfd = server_conn_info.sockfd;
 
     // Initializing the required variables
@@ -187,7 +40,7 @@ int main(int argc, char *argv[]){
     socklen_t addr_len;
 
     client_count = 0;
-    initCache();
+    //initCache();
 
     struct tm tm,*utc;
     time_t rawtime;
@@ -206,27 +59,27 @@ int main(int argc, char *argv[]){
                     FD_CLR(i,&master);
                     FD_CLR(i,&master_write);
                     close(i);
-                    if(gold[i].cb==-1){
-                        if(gold[i].del==true)
-                            remove(gold[i].filename);	// Delete the tmp file
+                    if(cached_doc_mnger.gold[i].cb==-1){
+                        if(cached_doc_mnger.gold[i].del==true)
+                            remove(cached_doc_mnger.gold[i].filename);	// Delete the tmp file
                     }
-                    else if(gold[i].cb != -1){
-                        bringToFront(gold[i].cb);
-                        cache[gold[i].cb].inUse-=1;		// Decrease the in Use counter by 1
+                    else if(cached_doc_mnger.gold[i].cb != -1){
+                        cached_doc_mnger.bringToFront(cached_doc_mnger.gold[i].cb);
+                        cached_doc_mnger.cache[cached_doc_mnger.gold[i].cb].inUse-=1;		// Decrease the in Use counter by 1
                     }
                     continue;
                 }
                 ifstream myfile1;
-                myfile1.open( gold[i].filename ,ios::in | ios::binary); // open the cache file or tmp file
+                myfile1.open( cached_doc_mnger.gold[i].filename ,ios::in | ios::binary); // open the cache file or tmp file
                 if( !myfile1.is_open() ){
-                    cout << gold[i].filename << endl;
+                    cout << cached_doc_mnger.gold[i].filename << endl;
                     cout << "SOCKET: " << i << " ==> " << "Could Not Open Cache File" << endl;
                     FD_CLR(i,&master_write);
                 }
                 else{  // opened successfully
                     //seekg:Set position in input sequence
-                    myfile1.seekg( (gold[i].offset)*2000 , ios::beg); // Seek the file with the offset in the parameters of the request and increase the offset by 1
-                    gold[i].offset+=1;
+                    myfile1.seekg( (cached_doc_mnger.gold[i].offset)*2000 , ios::beg); // Seek the file with the offset in the parameters of the request and increase the offset by 1
+                    cached_doc_mnger.gold[i].offset+=1;
                     myfile1.read(buf,2000);  // Read next 2000 bytes
                     num_bytes = myfile1.gcount();
                     //cout << num_bytes << endl;
@@ -240,15 +93,15 @@ int main(int argc, char *argv[]){
                         FD_CLR(i,&master);			
                         close(i);							// Connection closed with client and removed from master Read and Write sets
                         cout << "SERVER: **DONE** Connection closed to client " << i << ": **DONE**" << endl;
-                        if(gold[i].cb==-1){
+                        if(cached_doc_mnger.gold[i].cb==-1){
                             //cout << "SOCKET: " << i << " ==> " << "Remove Temp File" << endl;
-                            if(gold[i].del==true)
-                                remove(gold[i].filename);	// Delete the tmp file
+                            if(cached_doc_mnger.gold[i].del==true)
+                                remove(cached_doc_mnger.gold[i].filename);	// Delete the tmp file
                         }
-                        else if(gold[i].cb != -1){
-                            bringToFront(gold[i].cb);
-                            cache[gold[i].cb].inUse-=1;		// Decrease the in Use counter by 1
-                            //cout << "SOCKET: " << i << " ==> " << "Decrease inUse by 1 : " << cache[gold[i].cb].inUse<<endl;
+                        else if(cached_doc_mnger.gold[i].cb != -1){
+                            cached_doc_mnger.bringToFront(cached_doc_mnger.gold[i].cb);
+                            cached_doc_mnger.cache[cached_doc_mnger.gold[i].cb].inUse-=1;		// Decrease the in Use counter by 1
+                            //cout << "SOCKET: " << i << " ==> " << "Decrease inUse by 1 : " << cache[cached_doc_mnger.gold[i].cb].inUse<<endl;
                         }
                     }
                 } // open successfully ends
@@ -262,8 +115,8 @@ int main(int argc, char *argv[]){
                     }
                     else{
                         FD_SET(c_sockfd,&master);
-                        type[c_sockfd] = REQUEST_TYPE;   // type is a map<int, int> used to store requester or fetcher,
-                        client_count++;					// increase client count
+                        cached_doc_mnger.type[c_sockfd] = REQUEST_TYPE;   // cached_doc_mnger.type is a map<int, int> used to store requester or cached_doc_mnger.fetcher,
+                        client_count++; // increase client count
                         if(c_sockfd > fdmax)  // updating fdmax
                             fdmax = c_sockfd;
                         cout << "***************************************************************" << endl;
@@ -272,30 +125,31 @@ int main(int argc, char *argv[]){
                 }
                 else{
                     if((num_bytes = recv(i,buf,sizeof(buf),0)) <=0){
-                        if(num_bytes == 0){				// If received bytes are zero, it means client has disconnected, so remove its allocated resources
+                        if(num_bytes == 0){ // If received bytes are zero, it means client has disconnected, so remove its allocated resources
                         }
                         else{
                             perror("server: recv");
-                        }								
+                        }
                         close(i);
                         FD_CLR(i,&master);
-                        if(type[i]== FETCH_TYPE){
-                            FD_SET(requester[i],&master_write);// if it was a fetcher(web server closed tcp now), then start sending back to the requester
+                        
+                        if(cached_doc_mnger.type[i]== FETCH_TYPE){  // web server closed connection, needs to send file back now
+                            FD_SET(cached_doc_mnger.requester[i],&master_write);// if it was a cached_doc_mnger.fetcher(web server closed tcp now), then start sending back to the requester
                             
-                            int initiating_client_socket = requester[i];
-                            int bb = gold[initiating_client_socket].cb;
+                            int initiating_client_socket = cached_doc_mnger.requester[i];
+                            int bb = cached_doc_mnger.gold[initiating_client_socket].cb;
                             if(bb==-1){
                                 // Got No Block return from tmp file
                             }
                             else{
                                 // Copy tmp file to cache block and serve from cache block
                                 ifstream myfile3;
-                                myfile3.open(gold[initiating_client_socket].filename,ios::in | ios::binary);
+                                myfile3.open(cached_doc_mnger.gold[initiating_client_socket].filename,ios::in | ios::binary);
                                 string line;
                                 bool tof=false;
                                 if(myfile3.is_open()){
                                     getline(myfile3,line);
-                                    cout << "SERVER: Fetcher "<<i <<": for client "<<requester[i] << ": " << line << endl;
+                                    cout << "SERVER: Fetcher "<<i <<": for client "<<cached_doc_mnger.requester[i] << ": " << line << endl;
                                     if(line.find("304")!=string::npos)		// Check for 304 responses
                                         tof = true;
                                     bool flag = false;
@@ -317,11 +171,11 @@ int main(int argc, char *argv[]){
                                             getline(s2,line);
                                             //cache[bb].expr_date = line_cp.substr(pos,line_cp.find("GMT")-pos-1);
                                             line = line_cp.substr(pos);
-                                            cache[bb].expr_date = line;
+                                            cached_doc_mnger.cache[bb].expr_date = line;
                                             //cout << cache[bb].expr_date << endl;
                                             memset(&tm, 0, sizeof(struct tm));
                                             strptime(line.c_str(), "%a, %d %b %Y %H:%M:%S ", &tm);		// Update the Cache Block expires field with received value
-                                            cache[bb].expr = mktime(&tm);
+                                            cached_doc_mnger.cache[bb].expr = mktime(&tm);
                                             break;
                                         }
                                     }
@@ -330,55 +184,55 @@ int main(int argc, char *argv[]){
                                         time(&rawtime);
                                         utc = gmtime(&rawtime);
                                         strftime(time_buf, sizeof(time_buf), "%a, %d %b %Y %H:%M:%S ",utc);	// If Expires field was not present, set the current time as cache block expire time
-                                        cache[bb].expr = mktime(utc);
-                                        cache[bb].expr_date = string(time_buf) + string("GMT");
+                                        cached_doc_mnger.cache[bb].expr = mktime(utc);
+                                        cached_doc_mnger.cache[bb].expr_date = string(time_buf) + string("GMT");
                                     }
                                 }
                                 time(&rawtime);
                                 utc = gmtime(&rawtime);
                                 strftime(time_buf, sizeof(time_buf), "%a, %d %b %Y %H:%M:%S ",utc);
                                 cout << "SERVER: **Proxy Server Time**: " << time_buf << "GMT" << endl;
-                                cout << "SERVER: **File Expires Time**: " << cache[bb].expr_date << endl;
+                                cout << "SERVER: **File Expires Time**: " << cached_doc_mnger.cache[bb].expr_date << endl;
 
                                 if(tof==true){
-                                    if(gold[initiating_client_socket].conditional){	// if 304 response comes, serve from Cache Block and delete the tmp file
-                                        remove(gold[initiating_client_socket].filename);
+                                    if(cached_doc_mnger.gold[initiating_client_socket].conditional){	// if 304 response comes, serve from Cache Block and delete the tmp file
+                                        remove(cached_doc_mnger.gold[initiating_client_socket].filename);
                                         stringstream s4;
                                         s4 << bb;
                                         strcpy(tmpname,s4.str().c_str());
-                                        strcpy(gold[initiating_client_socket].filename,tmpname);									
-                                        gold[initiating_client_socket].del = false;
+                                        strcpy(cached_doc_mnger.gold[initiating_client_socket].filename,tmpname);									
+                                        cached_doc_mnger.gold[initiating_client_socket].del = false;
                                     }
                                 }
 
                                 if(tof==false){					// If it is not 304 response, see if we can write to the cache block assigned, or get a new cache block
-                                    if(cache[bb].inUse!=1){
-                                        if(cache[bb].inUse>1){
-                                            cache[bb].inUse-=1;
+                                    if(cached_doc_mnger.cache[bb].inUse!=1){
+                                        if(cached_doc_mnger.cache[bb].inUse>1){
+                                            cached_doc_mnger.cache[bb].inUse-=1;
                                             int new_cb;
-                                            new_cb = getFreeBlock();
+                                            new_cb = cached_doc_mnger.getFreeBlock();
                                             if(new_cb==-1){
-                                                gold[initiating_client_socket].del = true;
-                                                gold[initiating_client_socket].cb = new_cb;
+                                                cached_doc_mnger.gold[initiating_client_socket].del = true;
+                                                cached_doc_mnger.gold[initiating_client_socket].cb = new_cb;
                                                 bb = new_cb;
                                                 cout << "SERVER: Client " << i << ": Could Not find new free block" << endl;
                                             }
                                             else{
                                                 cout << "SERVER: Client" << i << ": Got new block because earlier was in use and we got a 200" << endl;
-                                                gold[initiating_client_socket].cb = new_cb;
-                                                cache[new_cb].expr = cache[bb].expr;
-                                                cache[new_cb].expr_date = cache[bb].expr_date;
+                                                cached_doc_mnger.gold[initiating_client_socket].cb = new_cb;
+                                                cached_doc_mnger.cache[new_cb].expr = cached_doc_mnger.cache[bb].expr;
+                                                cached_doc_mnger.cache[new_cb].expr_date = cached_doc_mnger.cache[bb].expr_date;
                                                 bb = new_cb;
                                             }
                                         }
                                     }
                                     else{
-                                        cache[bb].inUse = -2;
+                                        cached_doc_mnger.cache[bb].inUse = -2;
                                         //cout << "SOCKET: " << i << " ==> " << "Cache Block is free for writing" << endl;
                                     }
                                 }
 
-                                if(bb!=-1 && cache[bb].inUse==-2)	// Prepare the cache block and the parameters, remove the tmp file
+                                if(bb!=-1 && cached_doc_mnger.cache[bb].inUse==-2)	// Prepare the cache block and the parameters, remove the tmp file
                                 {
                                     //cout << "Still came here" << endl;
                                     stringstream s3;
@@ -388,23 +242,23 @@ int main(int argc, char *argv[]){
                                     myfile4.open(tmpname,ios::out | ios::binary);
                                     myfile4.close();
                                     remove(tmpname);
-                                    rename(gold[initiating_client_socket].filename,tmpname);
-                                    strcpy(gold[initiating_client_socket].filename,tmpname);
-                                    cache[bb].host_file = string(request[requester[i]]);
-                                    whichBlock[cache[bb].host_file]=bb;
-                                    gold[initiating_client_socket].del = false;
-                                    cache[bb].inUse = 1;
+                                    rename(cached_doc_mnger.gold[initiating_client_socket].filename,tmpname);
+                                    strcpy(cached_doc_mnger.gold[initiating_client_socket].filename,tmpname);
+                                    cached_doc_mnger.cache[bb].host_file = string(cached_doc_mnger.request[cached_doc_mnger.requester[i]]);
+                                    cached_doc_mnger.whichBlock[cached_doc_mnger.cache[bb].host_file]=bb;
+                                    cached_doc_mnger.gold[initiating_client_socket].del = false;
+                                    cached_doc_mnger.cache[bb].inUse = 1;
                                 }
                             }
                         }
                         else{
-                            cout << "SERVER: Client " << i << ": Disconnected" << endl;		// check if requester disconnected
+                            cout << "SERVER: Client " << i << ": Disconnected" << endl;		// check if cached_doc_mnger.requester disconnected
                         }
                     }
-                    else if(type[i]== FETCH_TYPE){  // num_bytes > 0
+                    else if(cached_doc_mnger.type[i]== FETCH_TYPE){  // num_bytes > 0
                         cout << "WRITING PARTS" << endl;
-                        ofstream myfile2;		// Fetcher writes the data into a tmp file for sending back to requester later
-                        myfile2.open(gold[requester[i]].filename,ios::out | ios::binary | ios::app);
+                        ofstream myfile2;		// Fetcher writes the data into a tmp file for sending back to cached_doc_mnger.requester later
+                        myfile2.open(cached_doc_mnger.gold[cached_doc_mnger.requester[i]].filename,ios::out | ios::binary | ios::app);
                         if(!myfile2.is_open()){ 
                             cout << "some error in opening file" << endl;
                         }
@@ -413,30 +267,30 @@ int main(int argc, char *argv[]){
                             myfile2.close();
                         }
                     }
-                    else if(type[i]== REQUEST_TYPE){  //  this socket_fd is a requester
+                    else if(cached_doc_mnger.type[i]== REQUEST_TYPE){  //  this socket_fd is a requester
                         struct info* temp_request_info;
-                        temp_request_info = parse_http_request(buf,num_bytes);
-                        request[i] = string(temp_request_info->host)+string(temp_request_info->file);
-                        cout << "SERVER: Client "<< i << ": GET Request: " << request[i] << endl;
-                        int cb = checkCache(request[i]);
+                        temp_request_info = cached_doc_mnger.parse_http_request(buf,num_bytes);
+                        cached_doc_mnger.request[i] = string(temp_request_info->host)+string(temp_request_info->file);
+                        cout << "SERVER: Client "<< i << ": GET Request: " << cached_doc_mnger.request[i] << endl;
+                        int cb = cached_doc_mnger.checkCache(cached_doc_mnger.request[i]);
                         //cout << "SOCKET: " << i << " ==> " << "First cb" << cb <<endl;
                         bool expired = false;
-                        gold[i].conditional = false;
+                        cached_doc_mnger.gold[i].conditional = false;
                         if(cb!=-1){
-                            if(cache[cb].inUse>=0){
-                                expired = isExpired(cb);
+                            if(cached_doc_mnger.cache[cb].inUse>=0){
+                                expired = cached_doc_mnger.isExpired(cb);
                                 if(expired){
                                     //cout << "SOCKET: " << i << " ==> " << "Expired Cache Block Send Contional Get" << endl;
-                                    gold[i].conditional = true;		// Data is stale, so do conditional get
+                                    cached_doc_mnger.gold[i].conditional = true;		// Data is stale, so do conditional get
                                 }
                                 else{
-                                    gold[i].cb = cb;		// Cache Hit happened, return data from cache
-                                    gold[i].offset = 0;
-                                    gold[i].del = false;
-                                    cache[cb].inUse += 1;
+                                    cached_doc_mnger.gold[i].cb = cb;		// Cache Hit happened, return data from cache
+                                    cached_doc_mnger.gold[i].offset = 0;
+                                    cached_doc_mnger.gold[i].del = false;
+                                    cached_doc_mnger.cache[cb].inUse += 1;
                                     stringstream ss;
                                     ss << cb;
-                                    strcpy(gold[i].filename,ss.str().c_str());
+                                    strcpy(cached_doc_mnger.gold[i].filename,ss.str().c_str());
                                     FD_SET(i,&master_write);
                                     cout << "SERVER: Client " << i << ": Cache Hit at Block "<< cb << ": **Not STALE**" << endl;
                                     //cout << "SOCKET: " << i << " ==> " << "RETURN FROM CACHE BLOCK" << endl;
@@ -450,42 +304,42 @@ int main(int argc, char *argv[]){
                             strcpy(buf,tmp_str.c_str());
                             if(!expired){
                                 //cout << "here" << endl;
-                                cb = getFreeBlock();
+                                cb = cached_doc_mnger.getFreeBlock();
                                 cout << "SERVER: Client "<< i << ": Cache Miss: Allocated Block " << cb << endl;	// if Not Stale get new cache block
                                 //cout <<buf << endl;
                             }
                             else{
-                                cache[cb].inUse+=1;
+                                cached_doc_mnger.cache[cb].inUse+=1;
                                 buf[num_bytes-2]='\0';
                                 string req = string(buf);
-                                string new_req = req+"If-Modified-Since: "+cache[cb].expr_date +"\r\n\r\n\0";		// If Stale send If-Modified-Since field in the header
+                                string new_req = req+"If-Modified-Since: "+cached_doc_mnger.cache[cb].expr_date +"\r\n\r\n\0";		// If Stale send If-Modified-Since field in the header
                                 num_bytes=new_req.length();
                                 strcpy(buf,new_req.c_str());
                                 //cout << buf << endl;
                                 cout << "SERVER: Client " << i << ": Cache Hit at Block "<< cb << ": **STALE** : **Conditional Get**" << endl;
-                                cout << "SERVER: Client " << i << ": If-Modified-Since: "<< cache[cb].expr_date << endl;
+                                cout << "SERVER: Client " << i << ": If-Modified-Since: "<< cached_doc_mnger.cache[cb].expr_date << endl;
                             }
-                            gold[i].cb = cb;
-                            //cout << "SOCKET: " << i << " ==> " << "GOT BLOCK " << gold[i].cb << endl;
+                            cached_doc_mnger.gold[i].cb = cb;
+                            //cout << "SOCKET: " << i << " ==> " << "GOT BLOCK " << cached_doc_mnger.gold[i].cb << endl;
                             
                             int new_web_socket = Utility::connect_to_web(temp_request_info->host, web_port);
-                            type[new_web_socket]=FETCH_TYPE;
-                            fetcher[i] = new_web_socket;
-                            requester[new_web_socket] = i;
+                            cached_doc_mnger.type[new_web_socket]=FETCH_TYPE;
+                            cached_doc_mnger.fetcher[i] = new_web_socket;
+                            cached_doc_mnger.requester[new_web_socket] = i;
 
-                            gold[i].del = true; // setting the parameters of the request
-                            gold[i].offset = 0;
+                            cached_doc_mnger.gold[i].del = true; // setting the parameters of the request
+                            cached_doc_mnger.gold[i].offset = 0;
                             stringstream ss;
-                            int rr = getRandomNumber();		// generate random number for temp_request_info file name
-                            while(checkRand.find(rr) != checkRand.end() ){
+                            int rr = Utility::getRandomNumber();		// generate random number for temp_request_info file name
+                            while(cached_doc_mnger.checkRand.find(rr) != cached_doc_mnger.checkRand.end() ){
                                 rr = (rr+1)%1000000007; // if requests are at same time the rand() will generate same random number so increment by 1 till we get a new number
                             }
-                            checkRand[rr]=true;
+                            cached_doc_mnger.checkRand[rr]=true;
                             ss << "tmp_"<< rr;
-                            strcpy(gold[i].filename,ss.str().c_str());
-                            //cout << "SERVER: Client " << i << " ==> " << "Tmp filename " << gold[i].filename << endl;
+                            strcpy(cached_doc_mnger.gold[i].filename,ss.str().c_str());
+                            //cout << "SERVER: Client " << i << " ==> " << "Tmp filename " << cached_doc_mnger.gold[i].filename << endl;
                             ofstream touch;
-                            touch.open(gold[i].filename,ios::out | ios::binary); // touch the tmp file
+                            touch.open(cached_doc_mnger.gold[i].filename,ios::out | ios::binary); // touch the tmp file
                             if(touch.is_open())
                                 touch.close();
                             // new_web_socket should be listened

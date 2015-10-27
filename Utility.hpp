@@ -14,12 +14,10 @@
 #include <stdio.h>
 
 #include <stdlib.h>
-
 #include <sys/wait.h>
 #include <signal.h>
-#include <string>
 #include <cstdlib>
-#include <deque>
+#include <ctime>
 
 using namespace std;
 
@@ -201,6 +199,12 @@ public:
         output->host[k]='\0';
         return output;
     }
+    // generate random number with current time as seed
+    static int getRandomNumber(){
+        srand(time(NULL));
+        return rand();
+    }
+
 };
 
 #endif // UTILITY_HPP

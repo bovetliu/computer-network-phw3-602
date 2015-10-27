@@ -112,30 +112,38 @@ int main(int argc, char *argv[]){
                                 string line;
                                 bool tof=false;
                                 if(myfile3.is_open()){
-                                    getline(myfile3,line);
-                                    cout << "SERVER: Fetcher "<<i <<": for client "<<cached_doc_mnger.requester[i] << ": " << line << endl;
-                                    if(line.find("304")!=string::npos)		// Check for 304 responses
-                                        tof = true;
+                                    int counter = 0;
                                     bool flag = false;
-                                    while(!myfile3.eof()){
+                                    
+                                    // following while mainly to search 304 or expires header
+                                    while( !myfile3.eof() ){
                                         getline(myfile3,line);
-                                        if(line.compare("\r") == 0){
+                                        if(line.compare("\r") == 0){  // passed region of headers, no need to check
                                             break;
                                         }
+                                        if (counter == 0){
+                                            cout << "SERVER: Fetcher sock_fd "<<i <<": for client "<<cached_doc_mnger.requester[i] << ": " << line << endl;
+                                        }
+                                        counter++;
+                                        if(line.find("304")!=string::npos)// Check for 304 responses
+                                            tof = true;
                                         string line_cp = line;
                                         //cout << line << endl;
                                         transform(line.begin(), line.end(), line.begin(), ::tolower);
+                                        //sample header Expires: Mon, 29 Apr 2013 21:44:55 GMT
                                         if(line.find("expires:")==0){		// Check for the Expires Field
                                             flag = true;
                                             int pos = 8;
                                             if(line[pos]==' ')
                                                 pos++;
-                                            stringstream s2;
-                                            s2 << line.substr(pos);
-                                            getline(s2,line);
+//                                            stringstream s2;
+//                                            s2 << line.substr(pos);
+//                                            getline(s2,line);
+                                            line_cp = line.substr(pos,line.length() );
+                                            printf("%s\n", line_cp.c_str());
                                             //cache[bb].expr_date = line_cp.substr(pos,line_cp.find("GMT")-pos-1);
-                                            line = line_cp.substr(pos);
-                                            cached_doc_mnger.cache[bb].expr_date = line;
+//                                            line = line_cp.substr(pos);
+                                            cached_doc_mnger.cache[bb].expr_date = line_cp;
                                             //cout << cache[bb].expr_date << endl;
                                             memset(&temptime, 0, sizeof(struct tm));
                                             strptime(line.c_str(), "%a, %d %b %Y %H:%M:%S ", &temptime);		// Update the Cache Block expires field with received value

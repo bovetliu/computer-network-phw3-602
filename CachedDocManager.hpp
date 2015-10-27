@@ -20,7 +20,7 @@ struct info{
 // struct to store parameters of each cache block
 struct cache_block{
     int last;
-    int inUse;
+    int inUse;  // count this cached_block is serving how many clients
     int expr;
     string expr_date;
     string host_file;
@@ -42,7 +42,7 @@ public:
     map<int,int> requester;	// map to store requester of current request, socket_fd : socket_fd
     map<int,int> fetcher;	// map to store fetcher of current requester
     map<int,int> type;		// map to store type of socket : requester/fetcher
-    map<int,struct parameters> gold;	// map to store progress of request and important parameters like cache block assigned
+    map<int,struct parameters> req_paras;	// map to store progress of request and important parameters like cache block assigned
     map<string,int> whichBlock;	// map to store which cache block belongs to current URL
     map<int,string> request;	// map to store the requested url of current client
     map<int,bool> checkRand;	// map to check if random number generated already exists

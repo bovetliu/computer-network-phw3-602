@@ -2,7 +2,6 @@
 #include "CachedDocManager.hpp"
 #include <algorithm>
 #include <sstream>
-#include <map>
 
 #define STDIN 0
 
@@ -18,11 +17,11 @@ int BACKLOG;
 int main(int argc, char *argv[]){
 
     //char ipstr[INET_ADDRSTRLEN];		//INET6_ADDRSTRLEN for IPv6
-    int sockfd,error;
+    int error;
     connection_info server_conn_info;
     Utility::initialize_server(argc, argv, server_conn_info);
     CachedDocManager cached_doc_mnger;
-    sockfd = server_conn_info.sockfd;
+
 
     // Initializing the required variables
     char buf[2048],time_buf[256],tmpname[512];
@@ -31,9 +30,9 @@ int main(int argc, char *argv[]){
     FD_ZERO(&master);
     FD_ZERO(&read_fds);
     FD_ZERO(&write_fds);
-    FD_SET(sockfd,&master);
+    FD_SET(server_conn_info.sockfd,&master);
 
-    int fdmax = sockfd, c_sockfd, i, num_bytes;
+    int fdmax = server_conn_info.sockfd, c_sockfd, i, num_bytes;
 
     struct sockaddr_storage client_addr;
     socklen_t addr_len;
@@ -45,13 +44,14 @@ int main(int argc, char *argv[]){
     time_t rawtime;
 
     while(1){
-        read_fds = master;
+        read_fds = master; 
         if( (error = select(fdmax+1, &read_fds, &write_fds, NULL, NULL)==-1)){
             perror("server: select");
             exit(4);
         }
         for(i = 0; i <= fdmax; i ++){
             if( FD_ISSET(i,&write_fds) ){ // Write to file descriptor, the only possiblity that proxy is going to write, is to write to clients
+                
                 if( FD_ISSET(i,&master) == false){ // Handle case when client disconnects in middle of transfer
                     cout << "SERVER: Client "<< i << ": Disconnected in middle of transfer" << endl;
                     FD_CLR(i,&master);
@@ -67,48 +67,14 @@ int main(int argc, char *argv[]){
                     }
                     continue;
                 }
-                ifstream myfile1;
-                myfile1.open( cached_doc_mnger.req_paras[i].filename ,ios::in | ios::binary); // open the cache file or tmp file
-                if( !myfile1.is_open() ){
-                    cout << cached_doc_mnger.req_paras[i].filename << endl;
-                    cout << "SOCKET: " << i << " ==> " << "Could Not Open Cache File" << endl;
-                    FD_CLR(i,&write_fds);
-                }
-                else{  // opened successfully
-                    //seekg:Set position in input sequence
-                    myfile1.seekg( (cached_doc_mnger.req_paras[i].offset)*2000 , ios::beg); // Seek the file with the offset in the parameters of the request and increase the offset by 1
-                    cached_doc_mnger.req_paras[i].offset+=1;
-                    myfile1.read(buf,2000);  // Read next 2000 bytes
-                    num_bytes = myfile1.gcount();
-                    //cout << num_bytes << endl;
-                    if(num_bytes!=0){
-                        if( (error = send(i,buf,num_bytes,0)) == -1){			// send the message to the server
-                                perror("client: send");
-                        }
-                    }
-                    if(num_bytes<2000){ // reached the end of FILE, now close the connection
-                        FD_CLR(i,&write_fds);
-                        FD_CLR(i,&master); 
-                        close(i); // Connection closed with client and removed from master Read and Write sets
-                        cout << "SERVER: **DONE** Connection closed to client " << i << ": **DONE**" << endl;
-                        if(cached_doc_mnger.req_paras[i].cb==-1){
-                            //cout << "SOCKET: " << i << " ==> " << "Remove Temp File" << endl;
-                            if(cached_doc_mnger.req_paras[i].del==true)
-                                remove(cached_doc_mnger.req_paras[i].filename);	// Delete the tmp file
-                        }
-                        else if(cached_doc_mnger.req_paras[i].cb != -1){
-                            cached_doc_mnger.bringToFront(cached_doc_mnger.req_paras[i].cb);
-                            cached_doc_mnger.cache[cached_doc_mnger.req_paras[i].cb].inUse-=1;		// Decrease the in Use counter by 1
-                            //cout << "SOCKET: " << i << " ==> " << "Decrease inUse by 1 : " << cache[cached_doc_mnger.req_paras[i].cb].inUse<<endl;
-                        }
-                    }
-                } // open successfully ends
-                myfile1.close();
+                // the socket_fd for client can be in both master and write_fds
+                cached_doc_mnger.sendPartOfFileToRequester(i, write_fds, master, buf);
+                
             }
-            else if(FD_ISSET(i,&read_fds)){  // Bowei Liu: this block go to line 616, to the end almost
-                if(i==sockfd){  // handle new clients here
+            else if(FD_ISSET(i,&read_fds)){ 
+                if(i == server_conn_info.sockfd){  // handle new clients here
                     addr_len = sizeof(client_addr);		// handle new clients here
-                    if( (c_sockfd = accept(sockfd, (struct sockaddr *)&client_addr,&addr_len) ) == -1){	// accept a new connection
+                    if( (c_sockfd = accept(server_conn_info.sockfd, (struct sockaddr *)&client_addr,&addr_len) ) == -1){	// accept a new connection
                         perror("server: accept");
                     }
                     else{
@@ -254,7 +220,7 @@ int main(int argc, char *argv[]){
                         }
                     }
                     else if(cached_doc_mnger.type[i]== FETCH_TYPE){  // num_bytes > 0
-                        cout << "WRITING PARTS" << endl;
+                        cout << "WRITING PARTS to Cache" << endl;
                         ofstream myfile2;		// Fetcher writes the data into a tmp file for sending back to cached_doc_mnger.requester later
                         myfile2.open(cached_doc_mnger.req_paras[cached_doc_mnger.requester[i]].filename,ios::out | ios::binary | ios::app);
                         if(!myfile2.is_open()){ 

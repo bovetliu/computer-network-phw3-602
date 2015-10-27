@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <unistd.h>
+#include <unistd.h>  // close (file_descriptor) needs this
 #include <fcntl.h>
 #include <cstring> //  memcpy({3}) need this
 #include <arpa/inet.h>

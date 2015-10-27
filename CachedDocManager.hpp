@@ -5,8 +5,11 @@
 #define REQUEST_TYPE 0
 #define MAX_NODE 10
 #define SIZE 10
+
 #include <string>
 #include <cstdlib>
+#include <sys/socket.h>
+#include <unistd.h> 
 #include <map>
 #include <iostream>
 #include <fstream>
@@ -57,6 +60,7 @@ public:
     int checkCache(string host_file);
     bool isExpired(int cb);
     struct info * parse_http_request(char *buf, int num_bytes);
+    void sendPartOfFileToRequester( int requester_sockfd, fd_set &write_fds, fd_set &master, char * shared_charbuf);
 };
 
 #endif // CACHEDDOCMANAGER_HPP

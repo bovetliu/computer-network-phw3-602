@@ -5,7 +5,7 @@
 #define REQUEST_TYPE 0
 #define MAX_NODE 10
 #define SIZE 10
-
+#include <cstring>
 #include <string>
 #include <cstdlib>
 #include <sys/socket.h>
@@ -50,12 +50,15 @@ struct parameters{
 struct LRU_node{
     string node_name;  // node_name has the same name with the file name, which stores body
     string domain_name;
+    string request;
     string page_name;  
     int expr_time;           // if this is not 0, this has been downloaded one time, if expired then send conditional-get, if not, server
+    string expr_date;
     int last_client_access;  // if this is 0, this is new node
     int web_sock_fd;         // the web_sock_fd responsible for filling it
+    int in_use;
     map<int, int> req_readpointer_map;    
-}
+};
 
 class CachedDocManager
 {
@@ -71,8 +74,8 @@ public:
     
     // Bowei: I will manly manage this page_to_node_map to realize LRU cache
     map<string, struct LRU_node> page_to_node_map;
-    map<int, struct LRU_node> webfd_to_node_map;  
-    map<int, struct LRU_node> clifd_map  // mainly for write_fds
+    map<int, struct LRU_node> webfd_map;  
+    map<int, struct LRU_node> clifd_map;  // mainly for write_fds
     // declaring cache 
     struct cache_block cache[MAX_NODE];
     CachedDocManager();
@@ -83,12 +86,12 @@ public:
     int  getFreeBlock();
     int checkCache(string host_file);
     bool isExpired(int cb);
-    struct info * parse_http_request(char *buf, int num_bytes);
+    struct info * parse_http_request(const char *buf, int num_bytes);
     void sendPartOfFileToRequester( int requester_sockfd, fd_set &write_fds, fd_set &master, char * shared_charbuf);
-    void analyzeHeaderOfFile( char * filename, bool & has_304, bool & has_expiration_header, string & expiration_str );
+    void analyzeHeaderOfFile( const char * filename, bool & has_304, bool & has_expiration_header, string & expiration_str );
     
     
-    struct LRU_node * allocOneNode( string request, int client_sock_fd);
+    struct LRU_node allocOneNode( string request, struct info* temp_info,  int client_sock_fd);
     void prepareAdaptiveRequestForWeb(struct LRU_node * p_lru_node, int client_sock_fd, char * shared_buf);
     
     bool isExpiredTime(int inputtime);
@@ -98,6 +101,7 @@ public:
         temp_sstream << number;
         return temp_sstream.str();
     }
+    void addReqSocketsOfNodeToWFD(struct LRU_node target_nd, fd_set & write_fds);
 };
 
 #endif // CACHEDDOCMANAGER_HPP

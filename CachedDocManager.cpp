@@ -77,7 +77,7 @@ bool CachedDocManager::isExpired(int cb){
 
 
 // function to parse the incoming HTTP request, decodes the File Name and Host Name 
-struct info * CachedDocManager::parse_http_request(char *buf, int num_bytes){
+struct info * CachedDocManager::parse_http_request(const char *buf, int num_bytes){
     struct info* output = (struct info *)malloc(sizeof(struct info));
     int i;
     for(i=0; i<num_bytes; i++){
@@ -108,16 +108,18 @@ struct info * CachedDocManager::parse_http_request(char *buf, int num_bytes){
 void CachedDocManager::sendPartOfFileToRequester(int requester_sockfd, fd_set &write_fds, fd_set &master, char * shared_charbuf){
     ifstream myfile1;
     int num_bytes, error;
-    myfile1.open( req_paras[requester_sockfd].filename ,ios::in | ios::binary); // open the cache file or tmp file
+    myfile1.open( clifd_map[requester_sockfd].node_name.c_str() ,ios::in | ios::binary); // open the cache file or tmp file
     if( !myfile1.is_open() ){
-        cout << req_paras[requester_sockfd].filename << endl;
+        cout << clifd_map[requester_sockfd].node_name << endl;
         cout << "SOCKET: " << requester_sockfd << " ==> " << "Could Not Open Cache File" << endl;
         FD_CLR(requester_sockfd,&write_fds);
     }
     else{  // opened successfully
         //seekg:Set position in input sequence
-        myfile1.seekg( (req_paras[requester_sockfd].offset)*2000 , ios::beg); // Seek the file with the offset in the parameters of the request and increase the offset by 1
-        req_paras[requester_sockfd].offset+=1;  // next retrieve next 2000 chacters
+        myfile1.seekg( (clifd_map[requester_sockfd].req_readpointer_map[requester_sockfd] )*2000 , ios::beg); // Seek the file with the offset in the parameters of the request and increase the offset by 1
+        cout<<"before" << clifd_map[requester_sockfd].req_readpointer_map[requester_sockfd] << endl;
+        clifd_map[requester_sockfd].req_readpointer_map[requester_sockfd] += 1;  // next retrieve next 2000 chacters
+        cout<<"after" <<clifd_map[requester_sockfd].req_readpointer_map[requester_sockfd] << endl;
         myfile1.read(shared_charbuf,2000);  // Read next 2000 bytes
         num_bytes = myfile1.gcount();
         //cout << num_bytes << endl;
@@ -132,16 +134,6 @@ void CachedDocManager::sendPartOfFileToRequester(int requester_sockfd, fd_set &w
             FD_CLR(requester_sockfd,&master); 
             close(requester_sockfd); // Connection closed with client and removed from master Read and Write sets
             cout << "SERVER: Finished Sending, Connection closed at client " << requester_sockfd << endl;
-            if(req_paras[requester_sockfd].cb==-1){
-                //cout << "SOCKET: " << requester_sockfd << " ==> " << "Remove Temp File" << endl;
-                if(req_paras[requester_sockfd].del==true)
-                    remove(req_paras[requester_sockfd].filename);	// Delete the tmp file
-            }
-            else if(req_paras[requester_sockfd].cb != -1){
-                bringToFront(req_paras[requester_sockfd].cb);
-                cache[req_paras[requester_sockfd].cb].inUse-=1;		// Decrease the in Use counter by 1
-                //cout << "SOCKET: " << requester_sockfd << " ==> " << "Decrease inUse by 1 : " << cache[req_paras[requester_sockfd].cb].inUse<<endl;
-            }
         }
     } // open successfully ends
     myfile1.close();
@@ -149,7 +141,7 @@ void CachedDocManager::sendPartOfFileToRequester(int requester_sockfd, fd_set &w
     
 }
 
-void CachedDocManager::analyzeHeaderOfFile(char * filename, bool & has_304, bool & has_expiration_header, string & expiration_str ){
+void CachedDocManager::analyzeHeaderOfFile(const char * filename, bool & has_304, bool & has_expiration_header, string & expiration_str ){
     ifstream myfile3;
     myfile3.open(filename,ios::in | ios::binary);
     int counter = 0;
@@ -186,18 +178,19 @@ void CachedDocManager::analyzeHeaderOfFile(char * filename, bool & has_304, bool
     
 }
 
-struct LRU_node * CachedDocManager::allocOneNode( string request, int client_sock_fd){
-    
-    if (this->page_to_node_map.find(request) != this->age_to_node_map.end()){   
+struct LRU_node CachedDocManager::allocOneNode( string request, struct info * tempinfo, int client_sock_fd){
+    // request is like www.easysublease.com/howitworks   no protocol
+    if (this->page_to_node_map.find(request) != this->page_to_node_map.end()){   
         // TODO: this has potential bug
         page_to_node_map[request].req_readpointer_map[client_sock_fd] = 0;
-        return &(page_to_node_map[request]);
+        return page_to_node_map[request];
     }
     // did not find LRU_node matching this request
     struct LRU_node new_node;
-    struct info * req_info = this->parse_http_request(request.c_str(),sizeof(request.c_str()));
-    new_node.domain_name = req_info->host;
-    new_node.page_name   = req_info->file;
+    
+    new_node.domain_name = string(tempinfo->host);
+    new_node.page_name   = string(tempinfo->file);
+    new_node.request = string(tempinfo->host)+ string(tempinfo->file);
     new_node.req_readpointer_map[client_sock_fd] = 0;
     new_node.node_name = this->castNumberToString( page_to_node_map.size() );
     
@@ -206,7 +199,7 @@ struct LRU_node * CachedDocManager::allocOneNode( string request, int client_soc
     new_node.web_sock_fd = 0; // the web_sock_fd responsible for filling it
     this->page_to_node_map[request] = new_node;
     
-    return &new_node;
+    return new_node;
 }
 
 void CachedDocManager::prepareAdaptiveRequestForWeb(struct LRU_node * p_lru_node, int client_sock_fd, char * shared_buf ){
@@ -217,7 +210,7 @@ void CachedDocManager::prepareAdaptiveRequestForWeb(struct LRU_node * p_lru_node
     } else {
         // No need to GEt
         cout << "No need to get since not expired" << endl;
-        clifd_map[client_sock_fd] = &(p_lru_node);
+        clifd_map[client_sock_fd] = *p_lru_node;
         tmp_str = "";
     }
     strcpy (shared_buf, tmp_str.c_str());
@@ -233,4 +226,12 @@ bool CachedDocManager::isExpiredTime(int input_time){
     if(input_time - raw_time > 0)
         return false;
     return true;
+}
+
+void CachedDocManager::addReqSocketsOfNodeToWFD(struct LRU_node target_nd, fd_set & write_fds){
+    map<int ,int> t_rq = target_nd.req_readpointer_map;
+    for (map<int, int>::iterator it = t_rq.begin(); it!= t_rq.end(); ++ it){
+        FD_SET(it->first, &write_fds);
+        clifd_map[it->first] = target_nd;
+    }
 }

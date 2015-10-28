@@ -258,17 +258,6 @@ int main(int argc, char *argv[]){
                                 cached_doc_mnger.fetcher[i] = new_web_socket;
                                 cached_doc_mnger.req_sockfd[new_web_socket] = i;
 
-                                cached_doc_mnger.req_paras[i].del = true; // setting the parameters of the request
-                                cached_doc_mnger.req_paras[i].offset = 0;
-                                stringstream ss;
-                                int rr = Utility::getRandomNumber();		// generate random number for temp_request_info file name
-                                while(cached_doc_mnger.checkRand.find(rr) != cached_doc_mnger.checkRand.end() ){
-                                    rr = (rr+1)%1000000007; // if requests are at same time the rand() will generate same random number so increment by 1 till we get a new number
-                                }
-                                cached_doc_mnger.checkRand[rr]=true;
-                                ss << "tmp_"<< rr;
-                                strcpy(cached_doc_mnger.req_paras[i].filename,ss.str().c_str());
-                                //cout << "SERVER: Client " << i << " ==> " << "Tmp filename " << cached_doc_mnger.req_paras[i].filename << endl;
                                 ofstream touch;
                                 touch.open(cached_doc_mnger.req_paras[i].filename,ios::out | ios::binary); // touch the tmp file
                                 if(touch.is_open())

@@ -148,3 +148,40 @@ void CachedDocManager::sendPartOfFileToRequester(int requester_sockfd, fd_set &w
     
     
 }
+
+void CachedDocManager::analyzeHeaderOfFile(char * filename, bool & has_304, bool & has_expiration_header, string & expiration_str ){
+    ifstream myfile3;
+    myfile3.open(filename,ios::in | ios::binary);
+    int counter = 0;
+    string line;
+    has_304 = false;
+    has_expiration_header = false;
+    if(myfile3.is_open()){
+
+        // following while mainly to search 304 or expires header
+        while( !myfile3.eof() ){
+            getline(myfile3,line);
+            if(line.compare("\r") == 0){  // reached end of headers, no need to check
+                break;
+            }
+            counter++;
+            if(line.find("304")!=string::npos)// Check for 304 responses
+                has_304 = true;
+
+            //sample header Expires: Mon, 29 Apr 2013 21:44:55 GMT
+            transform(line.begin(), line.end(), line.begin(), ::tolower);
+            if(line.find("expires:")==0){ // Check for the Expires Field
+                has_expiration_header = true;
+                int pos = 8;
+                while(line[pos] != ' '){
+                    pos++;
+                }
+                expiration_str = line.substr( pos,line.length() );
+                printf("found expires: %s\n", expiration_str.c_str());
+                break;
+            }
+        }
+        myfile3.close();
+    }
+    
+}

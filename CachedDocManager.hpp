@@ -22,27 +22,6 @@ struct info{
     char file[1024];
     char host[1024];
 };
-// struct to store parameters of each cache block
-struct cache_block{
-    int last;
-    int inUse;  // count this cached_block is serving how many clients
-    int expr;
-    string expr_date;
-    string host_file;
-};
-
-// struct to store paremeters of each request
-struct parameters{
-    int expires;
-    int length;
-    int cb;  // cache_block index
-    char filename[200];
-    int offset;
-    bool del;
-    bool conditional;
-};
-
-
 
 // start writing all new map
 
@@ -69,8 +48,7 @@ public:
     map<string, struct LRU_node> page_to_node_map;
     map<int, struct LRU_node *> webfd_map;  
     map<int, struct LRU_node *> clifd_map;  // mainly for write_fds
-    // declaring cache 
-    struct cache_block cache[MAX_NODE];
+
     CachedDocManager();
     ~CachedDocManager();
     

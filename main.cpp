@@ -1,8 +1,6 @@
 #include "Utility.hpp"
 #include "CachedDocManager.hpp"
 
-#include <sstream>
-
 #define STDIN 0
 
 // Thanks BEEJ.US for tutorial on how to use SELECT and pack and unpack functions

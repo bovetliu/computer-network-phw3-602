@@ -2,53 +2,13 @@
 
 CachedDocManager::CachedDocManager()
 {
-    for(int i=0; i< MAX_NODE; i++){
-        cache[i].last=i+1;
-        cache[i].inUse=0;
-    }
+
 }
 
 CachedDocManager::~CachedDocManager()
 {
 }
 
-void CachedDocManager::bringToFront(int block){
-    
-    if(cache[block].last==1)
-        return;
-    //cout << "Bringing to Front " << block << endl;
-    cache[block].last = 1;
-    for(int i=0; i<SIZE; i++){
-        if(i!=block){
-            cache[i].last++;
-            if(cache[i].last>SIZE)
-                cache[i].last = SIZE;
-        }
-    }
-    return;
-}
-
-int CachedDocManager::getFreeBlock(){
-    int end = SIZE;
-    int ans = -1;
-    //for(int i=0; i<SIZE; i++)
-    //	cout << cache[i].last << ",";
-    //cout << endl;
-    while(end>0){
-        for(int i=0; i<SIZE; i++){
-            if(cache[i].last==end && cache[i].inUse==0){
-                ans = i;
-                cache[ans].inUse=-2;
-                //cache[ans].last=1;
-                //cout << "Ans: "<< ans << endl;
-                end=0;
-                break;
-            }
-        }
-        end--;
-    }
-    return ans;
-}
 
 
 // function to parse the incoming HTTP request, decodes the File Name and Host Name 

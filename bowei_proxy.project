@@ -96,7 +96,6 @@
     <File Name="Utility.cpp"/>
     <File Name="CachedDocManager.hpp"/>
     <File Name="CachedDocManager.cpp"/>
-    <File Name="main_bf.txt"/>
   </VirtualDirectory>
   <Dependencies Name="Debug"/>
   <Dependencies Name="Release"/>

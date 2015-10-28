@@ -205,29 +205,84 @@ int main(int argc, char *argv[]){
                             temp_request_info = cached_doc_mnger.parse_http_request(buf,num_bytes);
                             string new_request(string(temp_request_info->host)+string(temp_request_info->file) );
                             cout << "SERVER: Client "<< i << ": GET Request: " << new_request << endl;
-                            struct LRU_node * p_lru_node = cached_doc_mnger.allocOneNode(new_request, i);
-                            cached_doc_mnger.prepareAdaptiveRequestForWeb( p_lru_node, i, buf);
-                            if (strlen(buf) == 0){
-                                FD_SET(i,&write_fds);  // this client_sock can be written back now
-                                cout << "SERVER: serving " << i <<   " use valid LRU_node " << endl;
-                                continue;
+                            struct LRU_node new_lru_node = cached_doc_mnger.allocOneNode(new_request, i);
+                            
+                            if(cb!=-1){
+                                if(cached_doc_mnger.cache[cb].inUse>=0){
+                                    expired = cached_doc_mnger.isExpired(cb);
+                                    if(expired){
+                                        //cout << "SOCKET: " << i << " ==> " << "Expired Cache Block Send Contional Get" << endl;
+                                        cached_doc_mnger.req_paras[i].conditional = true;// Data is stale, so do conditional get
+                                    }
+                                    else{
+                                        cached_doc_mnger.req_paras[i].cb = cb;		// Cache Hit happened, return data from cache
+                                        cached_doc_mnger.req_paras[i].offset = 0;
+                                        cached_doc_mnger.req_paras[i].del = false;
+                                        cached_doc_mnger.cache[cb].inUse += 1;
+                                        stringstream ss;
+                                        ss << cb;
+                                        strcpy(cached_doc_mnger.req_paras[i].filename,ss.str().c_str());
+                                        FD_SET(i,&write_fds);
+                                        cout << "SERVER: Client " << i << ": Cache Hit at Block "<< cb << ": **Not STALE**" << endl;
+
+                                        continue;
+                                    }
+                                }
                             }
-                            int new_web_socket = Utility::connect_to_web(temp_request_info->host, web_port);
-                            cached_doc_mnger.type_of[new_web_socket]=FETCH_TYPE;
-                            p_lru_node->web_sock_fd = new_web_socket;
-                            
-                            ofstream touch;
-                            touch.open(p_lru_node->node_name ,ios::out | ios::binary); 
-                            if(touch.is_open())
-                                touch.close();
-                            FD_SET(new_web_socket,&master);
-                            cached_doc_mnger.webfd_map[new_web_socket] = cached_doc_mnger.page_to_node_map[new_request];
-                            if(new_web_socket > fdmax)
-                                fdmax = new_web_socket;
-                            cout << "SERVER: Fetcher started at socket " << new_web_socket << ": for client " << i << endl;
-                            
-                            if( (error = send(new_web_socket,buf,num_bytes,0)) == -1){ // send the get or conditional get request
-                                perror("client: send");
+                            if(cb==-1 || expired){
+                                string tmp_str = "GET "+string(temp_request_info->file)+" HTTP/1.0\r\nHost: "+string(temp_request_info->host)+"\r\n\r\n";
+                                num_bytes = tmp_str.length();
+                                strcpy(buf,tmp_str.c_str());
+                                if(!expired){
+                                    //cout << "here" << endl;
+                                    cb = cached_doc_mnger.getFreeBlock();
+                                    cout << "SERVER: Client "<< i << ": Cache Miss: Allocated Block " << cb << endl;	// if Not Stale get new cache block
+                                    //cout <<buf << endl;
+                                }
+                                else{
+                                    cached_doc_mnger.cache[cb].inUse+=1;
+                                    buf[num_bytes-2]='\0';
+                                    string req = string(buf);
+                                    string new_req = req+"If-Modified-Since: "+cached_doc_mnger.cache[cb].expr_date +"\r\n\r\n\0";		// If Stale send If-Modified-Since field in the header
+                                    num_bytes=new_req.length();
+                                    strcpy(buf,new_req.c_str());
+                                    //cout << buf << endl;
+                                    cout << "SERVER: Client " << i << ": Cache Hit at Block "<< cb << ": **STALE** : **Conditional Get**" << endl;
+                                    cout << "REQ OUT: " << endl << new_req.c_str() << endl;
+                                }
+                                cached_doc_mnger.req_paras[i].cb = cb;
+                                //cout << "SOCKET: " << i << " ==> " << "GOT BLOCK " << cached_doc_mnger.req_paras[i].cb << endl;
+                                
+                                int new_web_socket = Utility::connect_to_web(temp_request_info->host, web_port);
+                                cached_doc_mnger.type_of[new_web_socket]=FETCH_TYPE;
+                                cached_doc_mnger.fetcher[i] = new_web_socket;
+                                cached_doc_mnger.req_sockfd[new_web_socket] = i;
+
+                                cached_doc_mnger.req_paras[i].del = true; // setting the parameters of the request
+                                cached_doc_mnger.req_paras[i].offset = 0;
+                                stringstream ss;
+                                int rr = Utility::getRandomNumber();		// generate random number for temp_request_info file name
+                                while(cached_doc_mnger.checkRand.find(rr) != cached_doc_mnger.checkRand.end() ){
+                                    rr = (rr+1)%1000000007; // if requests are at same time the rand() will generate same random number so increment by 1 till we get a new number
+                                }
+                                cached_doc_mnger.checkRand[rr]=true;
+                                ss << "tmp_"<< rr;
+                                strcpy(cached_doc_mnger.req_paras[i].filename,ss.str().c_str());
+                                //cout << "SERVER: Client " << i << " ==> " << "Tmp filename " << cached_doc_mnger.req_paras[i].filename << endl;
+                                ofstream touch;
+                                touch.open(cached_doc_mnger.req_paras[i].filename,ios::out | ios::binary); // touch the tmp file
+                                if(touch.is_open())
+                                    touch.close();
+                                // new_web_socket should be listened
+                                FD_SET(new_web_socket,&master);
+                                if(new_web_socket > fdmax)
+                                    fdmax = new_web_socket;
+
+                                //cout << "SOCKET: " << i << " ==> " << "new socket created " << new_web_socket << endl;
+                                cout << "SERVER: Fetcher started at socket " << new_web_socket << ": for client " << i << endl;
+                                if( (error = send(new_web_socket,buf,num_bytes,0)) == -1){			// send the get or conditional get request
+                                    perror("client: send");
+                                }
                             }
                             free(temp_request_info);
                         }  // (num_bytes > 0 && req_type)  ends

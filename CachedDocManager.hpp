@@ -13,6 +13,7 @@
 #include <map>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <algorithm>
 
 // struct to store file name and host name from http request
@@ -45,17 +46,15 @@ struct parameters{
 
 // start writing all new map
 
-struct write_utility{
-    int pos; // the pos of current writer
-}
+
 struct LRU_node{
     string node_name;  // node_name has the same name with the file name, which stores body
     string domain_name;
     string page_name;  
-    int expr_time;
-    int last_client_access;
-    int web_sock_fd; // the web_sock_fd responsible for filling it
-    map<int, struct write_utility> req_map;    
+    int expr_time;           // if this is not 0, this has been downloaded one time, if expired then send conditional-get, if not, server
+    int last_client_access;  // if this is 0, this is new node
+    int web_sock_fd;         // the web_sock_fd responsible for filling it
+    map<int, int> req_readpointer_map;    
 }
 
 class CachedDocManager
@@ -73,7 +72,7 @@ public:
     // Bowei: I will manly manage this page_to_node_map to realize LRU cache
     map<string, struct LRU_node> page_to_node_map;
     map<int, struct LRU_node> webfd_to_node_map;  
-    
+    map<int, struct LRU_node> clifd_map  // mainly for write_fds
     // declaring cache 
     struct cache_block cache[MAX_NODE];
     CachedDocManager();
@@ -87,6 +86,18 @@ public:
     struct info * parse_http_request(char *buf, int num_bytes);
     void sendPartOfFileToRequester( int requester_sockfd, fd_set &write_fds, fd_set &master, char * shared_charbuf);
     void analyzeHeaderOfFile( char * filename, bool & has_304, bool & has_expiration_header, string & expiration_str );
+    
+    
+    struct LRU_node * allocOneNode( string request, int client_sock_fd);
+    void prepareAdaptiveRequestForWeb(struct LRU_node * p_lru_node, int client_sock_fd, char * shared_buf);
+    
+    bool isExpiredTime(int inputtime);
+    
+    string castNumberToString( int number){
+        stringstream temp_sstream;
+        temp_sstream << number;
+        return temp_sstream.str();
+    }
 };
 
 #endif // CACHEDDOCMANAGER_HPP

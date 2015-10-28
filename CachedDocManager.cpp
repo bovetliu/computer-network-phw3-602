@@ -185,3 +185,52 @@ void CachedDocManager::analyzeHeaderOfFile(char * filename, bool & has_304, bool
     }
     
 }
+
+struct LRU_node * CachedDocManager::allocOneNode( string request, int client_sock_fd){
+    
+    if (this->page_to_node_map.find(request) != this->age_to_node_map.end()){   
+        // TODO: this has potential bug
+        page_to_node_map[request].req_readpointer_map[client_sock_fd] = 0;
+        return &(page_to_node_map[request]);
+    }
+    // did not find LRU_node matching this request
+    struct LRU_node new_node;
+    struct info * req_info = this->parse_http_request(request.c_str(),sizeof(request.c_str()));
+    new_node.domain_name = req_info->host;
+    new_node.page_name   = req_info->file;
+    new_node.req_readpointer_map[client_sock_fd] = 0;
+    new_node.node_name = this->castNumberToString( page_to_node_map.size() );
+    
+    new_node.expr_time = 0 ;
+    new_node.last_client_access = 0;
+    new_node.web_sock_fd = 0; // the web_sock_fd responsible for filling it
+    this->page_to_node_map[request] = new_node;
+    
+    return &new_node;
+}
+
+void CachedDocManager::prepareAdaptiveRequestForWeb(struct LRU_node * p_lru_node, int client_sock_fd, char * shared_buf ){
+    string tmp_str = "GET "+string(p_lru_node->page_name)+" HTTP/1.0\r\nHost: "+string(p_lru_node->domain_name)+"\r\n\r\n";
+    if ( this->isExpiredTime(p_lru_node->expr_time) ){
+        // GET
+        cout << "SERVER: " << tmp_str.c_str() << endl;
+    } else {
+        // No need to GEt
+        cout << "No need to get since not expired" << endl;
+        clifd_map[client_sock_fd] = &(p_lru_node);
+        tmp_str = "";
+    }
+    strcpy (shared_buf, tmp_str.c_str());
+}
+
+bool CachedDocManager::isExpiredTime(int input_time){
+    time_t raw_time;
+    time(&raw_time);
+    struct tm * utc;
+    utc = gmtime(&raw_time);
+    raw_time = mktime(utc);  // return time_t
+    //cout << "CACHE : " << cache[cb].expr << " :: CURRENT : " << raw_time << endl;
+    if(input_time - raw_time > 0)
+        return false;
+    return true;
+}

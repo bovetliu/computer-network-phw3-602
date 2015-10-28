@@ -124,17 +124,17 @@ int main(int argc, char *argv[]){
 
                             if(has_304){
                                 //updating 
-                                cout << "has 304" <<endl;
-                                cout << "I just leave it there" << endl;
+                                cout << "SERVER: temp file has 304" <<endl;
+                                cout << "SERVER: I just leave it there, will serve use core file" << endl;
                             }
                             else { // If it is not 304 response, see if we can write to the cache block assigned, or get a new cache block
-                                cout << "has not 304" <<endl;
+                                cout << "SERVER: temp file does not have 304" <<endl;
+                                // updating core
                                 rename( ( cached_doc_mnger.webfd_map[i]->node_name + temp_suffix).c_str(), cached_doc_mnger.webfd_map[i]->node_name.c_str() );
                                 
                             }
                             // following functin will clean webfd_map and add clifd_map
                             cached_doc_mnger.addReqSocketsOfNodeToWFD(*(cached_doc_mnger.webfd_map[i]), write_fds, master, i);
-                            
                         }
                         else{
                             cout << "SERVER: Client " << i << ": Disconnected" << endl;		// check if cached_doc_mnger.req_sockfd disconnected

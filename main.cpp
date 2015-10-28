@@ -57,7 +57,7 @@ int main(int argc, char *argv[]){
                     FD_CLR(i,&master);
                     FD_CLR(i,&write_fds);
                     close(i);
-                    cached_doc_mnger.clifd_map[i].in_use -= 1;
+                    
                     cached_doc_mnger.clifd_map.erase(i);
                     continue;
                 }
@@ -92,53 +92,54 @@ int main(int argc, char *argv[]){
                         FD_CLR(i,&master);
                         
                         if(cached_doc_mnger.type_of[i]== FETCH_TYPE){  // web server closed connection, needs to send file back now
-                            struct LRU_node temp_lru_node = cached_doc_mnger.webfd_map[i];
-                            cached_doc_mnger.addReqSocketsOfNodeToWFD(temp_lru_node, write_fds);
 
                             // Copy tmp file to cache block and serve from cache block
                             string expiration_str;
                             bool has_304 = false;
                             bool has_expiration_header = false;
-                            cached_doc_mnger.analyzeHeaderOfFile(temp_lru_node.node_name.c_str(),
+
+                            cached_doc_mnger.analyzeHeaderOfFile( (cached_doc_mnger.webfd_map[i])->node_name.c_str(),
                                                                 has_304, has_expiration_header,expiration_str);
                             memset(&temptime, 0, sizeof(struct tm));
                             
                             if (has_expiration_header){  // means expiration_str has value
                                 //strptime: convert  a  string  representation  of time to a time tm structure
                                 strptime(expiration_str.c_str(), "%a, %d %b %Y %H:%M:%S ", &temptime);
-                                temp_lru_node.expr_time = mktime(&temptime);
-                                temp_lru_node.expr_date = expiration_str;
+                                cached_doc_mnger.webfd_map[i]->expr_time = mktime(&temptime);
+                                cached_doc_mnger.webfd_map[i]->expr_date = expiration_str;
                             } else {  // does not has expiration header, 
                                 time(&rawtime);
                                 utc = gmtime(&rawtime);
                                 strftime(time_buf, sizeof(time_buf), "%a, %d %b %Y %H:%M:%S ",utc);	// If Expires field was not present, set the current time as cache block expire time
-                                temp_lru_node.expr_time = mktime(utc);
-                                temp_lru_node.expr_date = string(time_buf) + string("GMT");
+                                cached_doc_mnger.webfd_map[i]->expr_time = mktime(utc);
+                                cached_doc_mnger.webfd_map[i]->expr_date = string(time_buf) + string("GMT");
                             }
 
                             time(&rawtime);
                             utc = gmtime(&rawtime);
                             strftime(time_buf, sizeof(time_buf), "%a, %d %b %Y %H:%M:%S ",utc);
                             cout << "SERVER: Proxy Server Time: " << time_buf << "GMT" << endl;
-                            cout << "SERVER: File Expires Time: " << temp_lru_node.expr_date << endl;
+                            cout << "SERVER: File Expires Time: " << cached_doc_mnger.webfd_map[i]->expr_date << endl;
 
                             if(has_304){
-
+                                //updating 
+                                
                             }
                             else { // If it is not 304 response, see if we can write to the cache block assigned, or get a new cache block
-
+                            
                             }
-
+                            // following functin will clean webfd_map and add clifd_map
+                            cached_doc_mnger.addReqSocketsOfNodeToWFD(*(cached_doc_mnger.webfd_map[i]), write_fds, master, i);
                             
                         }
                         else{
                             cout << "SERVER: Client " << i << ": Disconnected" << endl;		// check if cached_doc_mnger.req_sockfd disconnected
                         }
                     } else{// recved num_bytes > 0 situation
-                        if(cached_doc_mnger.type_of[i]== FETCH_TYPE){  
+                        if(cached_doc_mnger.type_of[i] == FETCH_TYPE){  
                             cout << "WRITING PARTS to Cache" << endl;
                             ofstream myfile2;		// Fetcher writes the data into a tmp file for sending back to cached_doc_mnger.req_sockfd later
-                            myfile2.open( cached_doc_mnger.webfd_map[i].node_name.c_str() ,ios::out | ios::binary | ios::app);
+                            myfile2.open( cached_doc_mnger.webfd_map[i]->node_name.c_str() ,ios::out | ios::binary | ios::app);
                             if(!myfile2.is_open()){ 
                                 cout << "some error in opening file" << endl;
                             }
@@ -151,8 +152,9 @@ int main(int argc, char *argv[]){
                             temp_request_info = cached_doc_mnger.parse_http_request(buf,num_bytes);
                             string new_request(string(temp_request_info->host)+string(temp_request_info->file) );
                             cout << "SERVER: Client "<< i << ": GET Request: " << new_request << endl;
-                            struct LRU_node lru_node = cached_doc_mnger.allocOneNode(new_request,temp_request_info, i);
-                            cached_doc_mnger.prepareAdaptiveRequestForWeb( &lru_node, i, buf);
+                            struct LRU_node * plru_node = cached_doc_mnger.allocOneNode(new_request,temp_request_info, i);
+                            cout << "lru_node.expr_time" <<plru_node->expr_time << endl;
+                            cached_doc_mnger.prepareAdaptiveRequestForWeb( plru_node, i, buf);
                             if (strlen(buf) == 0){
                                 FD_SET(i,&write_fds);  // this client_sock can be written back now
                                 cout << "SERVER: serving " << i <<   " use valid LRU_node " << endl;
@@ -160,14 +162,22 @@ int main(int argc, char *argv[]){
                             }
                             int new_web_socket = Utility::connect_to_web(temp_request_info->host, web_port);
                             cached_doc_mnger.type_of[new_web_socket]=FETCH_TYPE;
-                            lru_node.web_sock_fd = new_web_socket;
+                            plru_node->web_sock_fd = new_web_socket;
                             
                             ofstream touch;
-                            touch.open(lru_node.node_name.c_str() ,ios::out | ios::binary); 
+                            touch.open(plru_node->node_name.c_str() ,ios::out | ios::binary); 
                             if(touch.is_open())
                                 touch.close();
                             FD_SET(new_web_socket,&master);
-                            cached_doc_mnger.webfd_map[new_web_socket] = cached_doc_mnger.page_to_node_map[new_request];
+                            cached_doc_mnger.webfd_map[new_web_socket] = &(cached_doc_mnger.page_to_node_map[new_request]);
+                            
+//                            cached_doc_mnger.webfd_map[new_web_socket]->expr_time =5;
+//                            if ( cached_doc_mnger.webfd_map[new_web_socket]->expr_time !=cached_doc_mnger.page_to_node_map[new_request].expr_time ){
+//                                cout << "!!!!!!!!" << endl;
+//                            }else {
+//                                cout << "........." << endl;
+//                            }
+                            
                             if(new_web_socket > fdmax)
                                 fdmax = new_web_socket;
                             cout << "SERVER: Fetcher started at socket " << new_web_socket << ": for client " << i << endl;

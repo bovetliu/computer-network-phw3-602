@@ -14,6 +14,7 @@ unsigned short int client_count; // global variable to store client count
 int MAXCLIENTS;
 int BACKLOG;
 
+
 int main(int argc, char *argv[]){
 
     //char ipstr[INET_ADDRSTRLEN];		//INET6_ADDRSTRLEN for IPv6
@@ -21,7 +22,7 @@ int main(int argc, char *argv[]){
     connection_info server_conn_info;
     Utility::initialize_server(argc, argv, server_conn_info);
     CachedDocManager cached_doc_mnger;
-
+    string temp_suffix("_temp_suffix");
 
     // Initializing the required variables
     char buf[2048],time_buf[256];
@@ -98,7 +99,7 @@ int main(int argc, char *argv[]){
                             bool has_304 = false;
                             bool has_expiration_header = false;
 
-                            cached_doc_mnger.analyzeHeaderOfFile( (cached_doc_mnger.webfd_map[i])->node_name.c_str(),
+                            cached_doc_mnger.analyzeHeaderOfFile( (cached_doc_mnger.webfd_map[i]->node_name + temp_suffix).c_str(),
                                                                 has_304, has_expiration_header,expiration_str);
                             memset(&temptime, 0, sizeof(struct tm));
                             
@@ -124,10 +125,12 @@ int main(int argc, char *argv[]){
                             if(has_304){
                                 //updating 
                                 cout << "has 304" <<endl;
-                                
+                                cout << "I just leave it there" << endl;
                             }
                             else { // If it is not 304 response, see if we can write to the cache block assigned, or get a new cache block
                                 cout << "has not 304" <<endl;
+                                rename( ( cached_doc_mnger.webfd_map[i]->node_name + temp_suffix).c_str(), cached_doc_mnger.webfd_map[i]->node_name.c_str() );
+                                
                             }
                             // following functin will clean webfd_map and add clifd_map
                             cached_doc_mnger.addReqSocketsOfNodeToWFD(*(cached_doc_mnger.webfd_map[i]), write_fds, master, i);
@@ -138,9 +141,9 @@ int main(int argc, char *argv[]){
                         }
                     } else{// recved num_bytes > 0 situation
                         if(cached_doc_mnger.type_of[i] == FETCH_TYPE){  
-                            cout << "WRITING PARTS to Cache" << endl;
+                            cout << "WRITING PARTS to Cache" <<(cached_doc_mnger.webfd_map[i]->node_name + temp_suffix).c_str()<< endl;
                             ofstream myfile2;		// Fetcher writes the data into a tmp file for sending back to cached_doc_mnger.req_sockfd later
-                            myfile2.open( cached_doc_mnger.webfd_map[i]->node_name.c_str() ,ios::out | ios::binary | ios::app);
+                            myfile2.open( (cached_doc_mnger.webfd_map[i]->node_name + temp_suffix).c_str() ,ios::out | ios::binary | ios::app);
                             if(!myfile2.is_open()){ 
                                 cout << "some error in opening file" << endl;
                             }
@@ -167,7 +170,7 @@ int main(int argc, char *argv[]){
                             plru_node->web_sock_fd = new_web_socket;
                             
                             ofstream touch;
-                            touch.open(plru_node->node_name.c_str() ,ios::out | ios::binary); 
+                            touch.open( (plru_node->node_name + temp_suffix).c_str() ,ios::out | ios::binary); 
                             if(touch.is_open())
                                 touch.close();
                             FD_SET(new_web_socket,&master);

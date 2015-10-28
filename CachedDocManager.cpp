@@ -182,7 +182,7 @@ void CachedDocManager::prepareAdaptiveRequestForWeb(struct LRU_node * p_lru_node
         cout << "SERVER: \n" << tmp_str.c_str() << endl;
     } else if ( this->isExpiredTime(p_lru_node->expr_time) ){
         tmp_str = "GET "+string(p_lru_node->page_name)+" HTTP/1.0\r\nHost: "+string(p_lru_node->domain_name)+"\r\n" ;
-        tmp_str = tmp_str + "If-Modified-Since: Sat, 29 Oct 1994 19:43:31 GMT\r\n\r\n";		// If Stale send If-Modified-Since field in the header
+        tmp_str = tmp_str + "If-Modified-Since: " + p_lru_node->expr_date+" GMT\r\n\r\n";		// If Stale send If-Modified-Since field in the header
         cout << "SERVER: \n" << tmp_str.c_str() << endl;
     } else {
         // No need to GEt

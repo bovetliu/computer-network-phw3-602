@@ -184,7 +184,7 @@ int main(int argc, char *argv[]){
                                 fdmax = new_web_socket;
                             cout << "SERVER: Fetcher started at socket " << new_web_socket << ": for client " << i << endl;
                             
-                            if( (error = send(new_web_socket,buf,num_bytes,0)) == -1){ // send the get or conditional get request
+                            if( (error = send(new_web_socket,buf,strlen(buf),0)) == -1){ // send the get or conditional get request
                                 perror("client: send");
                             }
                             free(temp_request_info);

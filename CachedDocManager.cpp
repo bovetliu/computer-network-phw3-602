@@ -181,10 +181,8 @@ void CachedDocManager::prepareAdaptiveRequestForWeb(struct LRU_node * p_lru_node
     if ( p_lru_node->expr_time == 0 ){
         cout << "SERVER: \n" << tmp_str.c_str() << endl;
     } else if ( this->isExpiredTime(p_lru_node->expr_time) ){
-        
-        tmp_str = tmp_str.substr(0, tmp_str.length()-2) + "If-Modified-Since: "+ p_lru_node->expr_date +"\r\n\r\n\0";		// If Stale send If-Modified-Since field in the header
-        char local_see[100];
-        strcpy(local_see,tmp_str.c_str());
+        tmp_str = "GET "+string(p_lru_node->page_name)+" HTTP/1.0\r\nHost: "+string(p_lru_node->domain_name)+"\r\n" ;
+        tmp_str = tmp_str + "If-Modified-Since: Sat, 29 Oct 1994 19:43:31 GMT\r\n\r\n";		// If Stale send If-Modified-Since field in the header
         cout << "SERVER: \n" << tmp_str.c_str() << endl;
     } else {
         // No need to GEt
@@ -192,7 +190,8 @@ void CachedDocManager::prepareAdaptiveRequestForWeb(struct LRU_node * p_lru_node
         clifd_map[client_sock_fd] = p_lru_node;
         tmp_str = "";
     }
-    strcpy (shared_buf, tmp_str.c_str());
+    strncpy (shared_buf, tmp_str.c_str(),2047);
+
 }
 
 bool CachedDocManager::isExpiredTime(int input_time){

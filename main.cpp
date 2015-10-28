@@ -123,10 +123,11 @@ int main(int argc, char *argv[]){
 
                             if(has_304){
                                 //updating 
+                                cout << "has 304" <<endl;
                                 
                             }
                             else { // If it is not 304 response, see if we can write to the cache block assigned, or get a new cache block
-                            
+                                cout << "has not 304" <<endl;
                             }
                             // following functin will clean webfd_map and add clifd_map
                             cached_doc_mnger.addReqSocketsOfNodeToWFD(*(cached_doc_mnger.webfd_map[i]), write_fds, master, i);
@@ -154,6 +155,7 @@ int main(int argc, char *argv[]){
                             cout << "SERVER: Client "<< i << ": GET Request: " << new_request << endl;
                             struct LRU_node * plru_node = cached_doc_mnger.allocOneNode(new_request,temp_request_info, i);
                             cout << "lru_node.expr_time" <<plru_node->expr_time << endl;
+                            memset(buf,'\0' , 2048);
                             cached_doc_mnger.prepareAdaptiveRequestForWeb( plru_node, i, buf);
                             if (strlen(buf) == 0){
                                 FD_SET(i,&write_fds);  // this client_sock can be written back now

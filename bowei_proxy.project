@@ -26,6 +26,7 @@
     <File Name="CachedDocManager.hpp"/>
     <File Name="CachedDocManager.cpp"/>
     <File Name="tracing_maps.txt"/>
+    <File Name="readme.md"/>
   </VirtualDirectory>
   <Dependencies Name="Debug"/>
   <Dependencies Name="Release"/>

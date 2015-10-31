@@ -1,1 +1,1 @@
-./Debug/main.cpp.o ./Debug/Utility.cpp.o ./Debug/CachedDocManager.cpp.o
+./Debug/CachedDocManager.cpp.o ./Debug/ProxyUtility.cpp.o ./Debug/proxy_main.cpp.o

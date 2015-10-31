@@ -20,13 +20,13 @@
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="src">
-    <File Name="main.cpp"/>
-    <File Name="Utility.hpp"/>
-    <File Name="Utility.cpp"/>
     <File Name="CachedDocManager.hpp"/>
     <File Name="CachedDocManager.cpp"/>
     <File Name="tracing_maps.txt"/>
     <File Name="readme.md"/>
+    <File Name="ProxyUtility.hpp"/>
+    <File Name="ProxyUtility.cpp"/>
+    <File Name="proxy_main.cpp"/>
   </VirtualDirectory>
   <Dependencies Name="Debug"/>
   <Dependencies Name="Release"/>

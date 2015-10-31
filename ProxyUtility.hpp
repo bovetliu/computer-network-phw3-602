@@ -1,5 +1,5 @@
-#ifndef UTILITY_HPP
-#define UTILITY_HPP
+#ifndef PROXY_UTILITY_HPP
+#define PROXY_UTILITY_HPP
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -8,7 +8,7 @@
 #include <fcntl.h>
 #include <cstring> //  memcpy({3}) need this
 #include <arpa/inet.h>
-#include <netinet/in.h>  
+#include <netinet/in.h>
 // above header is important, most networking programming stucts and MACRO constants such as INET_ADDRSTRLEN are defined within it
 #include <iostream>
 #include <stdio.h>
@@ -173,4 +173,4 @@ public:
     }
 };
 
-#endif // UTILITY_HPP
+#endif //PROXY_UTILITY_HPP

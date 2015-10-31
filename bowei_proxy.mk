@@ -60,7 +60,7 @@ AS       := /usr/bin/as
 ## User defined environment variables
 ##
 CodeLiteDir:=/usr/share/codelite
-Objects0=$(IntermediateDirectory)/main.cpp$(ObjectSuffix) $(IntermediateDirectory)/Utility.cpp$(ObjectSuffix) $(IntermediateDirectory)/CachedDocManager.cpp$(ObjectSuffix) 
+Objects0=$(IntermediateDirectory)/CachedDocManager.cpp$(ObjectSuffix) $(IntermediateDirectory)/ProxyUtility.cpp$(ObjectSuffix) $(IntermediateDirectory)/proxy_main.cpp$(ObjectSuffix) 
 
 
 
@@ -91,22 +91,6 @@ PreBuild:
 ##
 ## Objects
 ##
-$(IntermediateDirectory)/main.cpp$(ObjectSuffix): main.cpp $(IntermediateDirectory)/main.cpp$(DependSuffix)
-	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/boweiliu/Documents/codelite_workspace/bowei_proxy/main.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/main.cpp$(ObjectSuffix) $(IncludePath)
-$(IntermediateDirectory)/main.cpp$(DependSuffix): main.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/main.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/main.cpp$(DependSuffix) -MM "main.cpp"
-
-$(IntermediateDirectory)/main.cpp$(PreprocessSuffix): main.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/main.cpp$(PreprocessSuffix) "main.cpp"
-
-$(IntermediateDirectory)/Utility.cpp$(ObjectSuffix): Utility.cpp $(IntermediateDirectory)/Utility.cpp$(DependSuffix)
-	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/boweiliu/Documents/codelite_workspace/bowei_proxy/Utility.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/Utility.cpp$(ObjectSuffix) $(IncludePath)
-$(IntermediateDirectory)/Utility.cpp$(DependSuffix): Utility.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/Utility.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/Utility.cpp$(DependSuffix) -MM "Utility.cpp"
-
-$(IntermediateDirectory)/Utility.cpp$(PreprocessSuffix): Utility.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/Utility.cpp$(PreprocessSuffix) "Utility.cpp"
-
 $(IntermediateDirectory)/CachedDocManager.cpp$(ObjectSuffix): CachedDocManager.cpp $(IntermediateDirectory)/CachedDocManager.cpp$(DependSuffix)
 	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/boweiliu/Documents/codelite_workspace/bowei_proxy/CachedDocManager.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/CachedDocManager.cpp$(ObjectSuffix) $(IncludePath)
 $(IntermediateDirectory)/CachedDocManager.cpp$(DependSuffix): CachedDocManager.cpp
@@ -114,6 +98,22 @@ $(IntermediateDirectory)/CachedDocManager.cpp$(DependSuffix): CachedDocManager.c
 
 $(IntermediateDirectory)/CachedDocManager.cpp$(PreprocessSuffix): CachedDocManager.cpp
 	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/CachedDocManager.cpp$(PreprocessSuffix) "CachedDocManager.cpp"
+
+$(IntermediateDirectory)/ProxyUtility.cpp$(ObjectSuffix): ProxyUtility.cpp $(IntermediateDirectory)/ProxyUtility.cpp$(DependSuffix)
+	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/boweiliu/Documents/codelite_workspace/bowei_proxy/ProxyUtility.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/ProxyUtility.cpp$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/ProxyUtility.cpp$(DependSuffix): ProxyUtility.cpp
+	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/ProxyUtility.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/ProxyUtility.cpp$(DependSuffix) -MM "ProxyUtility.cpp"
+
+$(IntermediateDirectory)/ProxyUtility.cpp$(PreprocessSuffix): ProxyUtility.cpp
+	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/ProxyUtility.cpp$(PreprocessSuffix) "ProxyUtility.cpp"
+
+$(IntermediateDirectory)/proxy_main.cpp$(ObjectSuffix): proxy_main.cpp $(IntermediateDirectory)/proxy_main.cpp$(DependSuffix)
+	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/boweiliu/Documents/codelite_workspace/bowei_proxy/proxy_main.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/proxy_main.cpp$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/proxy_main.cpp$(DependSuffix): proxy_main.cpp
+	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/proxy_main.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/proxy_main.cpp$(DependSuffix) -MM "proxy_main.cpp"
+
+$(IntermediateDirectory)/proxy_main.cpp$(PreprocessSuffix): proxy_main.cpp
+	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/proxy_main.cpp$(PreprocessSuffix) "proxy_main.cpp"
 
 
 -include $(IntermediateDirectory)/*$(DependSuffix)

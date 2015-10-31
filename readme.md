@@ -18,11 +18,11 @@ Utility is basically one static class(all methods are static), CachedDocManager 
 
 For CachedDocManager the core properties are following:
 
-    map<string, struct LRU_node> page_to_node_map;
+    map\<string, struct LRU_node\> page_to_node_map;
     
-    map<int, struct LRU_node *> webfd_map;  
+    map\<int, struct LRU_node *\> webfd_map;  
     
-    map<int, struct LRU_node *> clifd_map;  // mainly for write_fds
+    map\<int, struct LRU_node *\> clifd_map;  // mainly for write_fds
     
 
 page_to_node_map stores LRU_node keyed by requests URL, the CachedDocManager only keeps 10 URL and its file cached. 

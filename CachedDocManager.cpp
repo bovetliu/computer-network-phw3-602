@@ -14,29 +14,15 @@ CachedDocManager::~CachedDocManager()
 // function to parse the incoming HTTP request, decodes the File Name and Host Name 
 struct info * CachedDocManager::parse_http_request(const char *buf, int num_bytes){
     struct info* output = (struct info *)malloc(sizeof(struct info));
-    int i;
-    for(i=0; i<num_bytes; i++){
-        if(buf[i]==' '){
-            i++;
-            break;
-        }
-    }
-    int k=0;
-    output->file[0]='/';
-    if(buf[i+8]=='\r' && buf[i+9]=='\n'){
-        output->file[1]='\0';
-    }
-    else{
-        while(buf[i]!=' ')
-            output->file[k++]=buf[i++];
-        output->file[k]='\0';
-    }
-    i+=1;
-    while(buf[i++]!=' ');
-    k=0;
-    while(buf[i]!='\r')
-        output->host[k++]=buf[i++];
-    output->host[k]='\0';
+    string request(buf);
+    size_t left = request.find_first_of(' ');
+    left = request.find_first_not_of(' ', left );
+    size_t right = request.find_first_of(' ', left);
+    
+    strcpy(output->file, request.substr(left, right - left).c_str());
+    left = request.find("Host: ", right) + 6;
+    right = request.find("\r\n\r\n", left);
+    strcpy(output->host, request.substr(left, right -left).c_str());
     return output;
 }
 

@@ -46,7 +46,7 @@ private:
 public:
 
     map<int,int> type_of;		// map to store req_sockfd of socket : req_sockfd/fetcher
-    // Bowei: I will manly manage this page_to_node_map to realize LRU cache
+    // Bowei: I will mainly manage this page_to_node_map to realize LRU cache
     map<string, struct LRU_node> page_to_node_map;
     map<int, struct LRU_node *> webfd_map;  
     map<int, struct LRU_node *> clifd_map;  // mainly for write_fds
@@ -55,8 +55,6 @@ public:
     ~CachedDocManager();
     
     // methods
-    void bringToFront(int block);
-    int  getFreeBlock();
     struct info * parse_http_request(const char *buf, int num_bytes);
     void sendPartOfFileToRequester( int requester_sockfd, fd_set &write_fds, fd_set &master, char * shared_charbuf);
     void analyzeHeaderOfFile( const char * filename, bool & has_304, bool & has_expiration_header, string & expiration_str );

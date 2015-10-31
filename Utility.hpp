@@ -10,7 +10,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>  
 // above header is important, most networking programming stucts and MACRO constants such as INET_ADDRSTRLEN are defined within it
-
+#include <iostream>
 #include <stdio.h>
 #include <sstream>
 #include <stdlib.h>
@@ -28,11 +28,6 @@ typedef struct
     struct addrinfo  address_info;
 
 } connection_info;
-
-struct web_file_info {
-    char file[1024];
-    char host[1024];
-};
 
 class Utility
 {
@@ -176,41 +171,6 @@ public:
         }
         return &(((struct sockaddr_in6*)sa)->sin6_addr);
     }
-
-    
-    static struct web_file_info * parse_http_request(char *buf, int num_bytes){
-        struct web_file_info* output = (struct web_file_info *)malloc(sizeof(struct web_file_info));
-        int i;
-        for(i=0; i<num_bytes; i++){
-            if(buf[i]==' '){
-                i++;
-                break;
-            }
-        }
-        int k=0;
-        output->file[0]='/';
-        if(buf[i+8]=='\r' && buf[i+9]=='\n'){
-            output->file[1]='\0';
-        }
-        else{
-            while(buf[i]!=' ')
-                output->file[k++]=buf[i++];
-            output->file[k]='\0';
-        }
-        i+=1;
-        while(buf[i++]!=' ');
-        k=0;
-        while(buf[i]!='\r')
-            output->host[k++]=buf[i++];
-        output->host[k]='\0';
-        return output;
-    }
-    // generate random number with current time as seed
-    static int getRandomNumber(){
-        srand(time(NULL));
-        return rand();
-    }
-
 };
 
 #endif // UTILITY_HPP

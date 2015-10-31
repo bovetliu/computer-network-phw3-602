@@ -60,7 +60,7 @@ AS       := /usr/bin/as
 ## User defined environment variables
 ##
 CodeLiteDir:=/usr/share/codelite
-Objects0=$(IntermediateDirectory)/CachedDocManager.cpp$(ObjectSuffix) $(IntermediateDirectory)/ProxyUtility.cpp$(ObjectSuffix) $(IntermediateDirectory)/proxy_main.cpp$(ObjectSuffix) 
+Objects0=$(IntermediateDirectory)/CachedDocManager.cpp$(ObjectSuffix) $(IntermediateDirectory)/ProxyUtility.cpp$(ObjectSuffix) $(IntermediateDirectory)/team8_proxy_main.cpp$(ObjectSuffix) 
 
 
 
@@ -107,13 +107,13 @@ $(IntermediateDirectory)/ProxyUtility.cpp$(DependSuffix): ProxyUtility.cpp
 $(IntermediateDirectory)/ProxyUtility.cpp$(PreprocessSuffix): ProxyUtility.cpp
 	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/ProxyUtility.cpp$(PreprocessSuffix) "ProxyUtility.cpp"
 
-$(IntermediateDirectory)/proxy_main.cpp$(ObjectSuffix): proxy_main.cpp $(IntermediateDirectory)/proxy_main.cpp$(DependSuffix)
-	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/boweiliu/Documents/codelite_workspace/bowei_proxy/proxy_main.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/proxy_main.cpp$(ObjectSuffix) $(IncludePath)
-$(IntermediateDirectory)/proxy_main.cpp$(DependSuffix): proxy_main.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/proxy_main.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/proxy_main.cpp$(DependSuffix) -MM "proxy_main.cpp"
+$(IntermediateDirectory)/team8_proxy_main.cpp$(ObjectSuffix): team8_proxy_main.cpp $(IntermediateDirectory)/team8_proxy_main.cpp$(DependSuffix)
+	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/boweiliu/Documents/codelite_workspace/bowei_proxy/team8_proxy_main.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/team8_proxy_main.cpp$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/team8_proxy_main.cpp$(DependSuffix): team8_proxy_main.cpp
+	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/team8_proxy_main.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/team8_proxy_main.cpp$(DependSuffix) -MM "team8_proxy_main.cpp"
 
-$(IntermediateDirectory)/proxy_main.cpp$(PreprocessSuffix): proxy_main.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/proxy_main.cpp$(PreprocessSuffix) "proxy_main.cpp"
+$(IntermediateDirectory)/team8_proxy_main.cpp$(PreprocessSuffix): team8_proxy_main.cpp
+	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/team8_proxy_main.cpp$(PreprocessSuffix) "team8_proxy_main.cpp"
 
 
 -include $(IntermediateDirectory)/*$(DependSuffix)

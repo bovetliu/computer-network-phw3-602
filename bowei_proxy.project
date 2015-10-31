@@ -26,7 +26,7 @@
     <File Name="readme.md"/>
     <File Name="ProxyUtility.hpp"/>
     <File Name="ProxyUtility.cpp"/>
-    <File Name="proxy_main.cpp"/>
+    <File Name="team8_proxy_main.cpp"/>
   </VirtualDirectory>
   <Dependencies Name="Debug"/>
   <Dependencies Name="Release"/>

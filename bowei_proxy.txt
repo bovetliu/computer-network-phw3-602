@@ -1,1 +1,1 @@
-./Debug/CachedDocManager.cpp.o ./Debug/ProxyUtility.cpp.o ./Debug/proxy_main.cpp.o
+./Debug/CachedDocManager.cpp.o ./Debug/ProxyUtility.cpp.o ./Debug/team8_proxy_main.cpp.o

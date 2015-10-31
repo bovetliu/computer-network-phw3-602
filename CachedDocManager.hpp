@@ -41,6 +41,8 @@ struct LRU_node{
 
 class CachedDocManager
 {
+private:
+    void evictOldestLastAccess ();
 public:
 
     map<int,int> type_of;		// map to store req_sockfd of socket : req_sockfd/fetcher
@@ -65,12 +67,15 @@ public:
     
     bool isExpiredTime(int inputtime);
     
+    // one inline method
     string castNumberToString( int number){
         stringstream temp_sstream;
         temp_sstream << number;
         return temp_sstream.str();
     }
     void addReqSocketsOfNodeToWFD(struct LRU_node & target_nd, fd_set & write_fds, fd_set & master, int current_sock_fd);
+
+    
 };
 
 #endif // CACHEDDOCMANAGER_HPP

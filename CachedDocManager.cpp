@@ -114,9 +114,10 @@ void CachedDocManager::analyzeHeaderOfFile(const char * filename, bool & has_304
 
 struct LRU_node * CachedDocManager::allocOneNode( string request, struct info * tempinfo, int client_sock_fd){
     // request is like www.easysublease.com/howitworks   no protocol
+    evictOldestLastAccess();
     if (this->page_to_node_map.find(request) != this->page_to_node_map.end()){   
         page_to_node_map[request].req_readpointer_map[client_sock_fd] = 0;
-        cout << "old node expr_date: "<< page_to_node_map[request].expr_date.c_str() << endl;
+        cout << "SERVER: hit old node, expr_date: "<< page_to_node_map[request].expr_date.c_str() << endl;
         return &(page_to_node_map[request]);
     }
     // did not find LRU_node matching this request
@@ -132,11 +133,10 @@ struct LRU_node * CachedDocManager::allocOneNode( string request, struct info * 
     new_node.last_client_access = 0;
     new_node.web_sock_fd = 0; // the web_sock_fd responsible for filling it
     this->page_to_node_map[request] = new_node;
-    
     return &(this->page_to_node_map[request]);
 }
 
-void CachedDocManager::prepareAdaptiveRequestForWeb(struct LRU_node * p_lru_node, int client_sock_fd, char * shared_buf ){
+void CachedDocManager::prepareAdaptiveRequestForWeb (struct LRU_node * p_lru_node, int client_sock_fd, char * shared_buf ){
     string tmp_str = "GET "+string(p_lru_node->page_name)+" HTTP/1.0\r\nHost: "+string(p_lru_node->domain_name)+"\r\n\r\n";
     if ( p_lru_node->expr_time == 0 ){
         cout << "SERVER: \n" << tmp_str.c_str() << endl;
@@ -171,11 +171,33 @@ void CachedDocManager::addReqSocketsOfNodeToWFD(struct LRU_node & target_nd, fd_
     for (map<int, int>::iterator it = t_rq.begin(); it!= t_rq.end(); ++ it){
         FD_SET(it->first, &write_fds);
         clifd_map[it->first] = &target_nd;
-
     }
-
     if (current_sock_fd == target_nd.web_sock_fd){
         webfd_map.erase(current_sock_fd);
     }
-    
+}
+
+// private method
+void CachedDocManager::evictOldestLastAccess(){
+    if (page_to_node_map.size()< MAX_NODE){
+        cout << "LRC caches size: " << page_to_node_map.size() << ", No need of eviction" << endl;
+        return;
+    }
+    // iterate map find the oldest last access node's key:string
+    string oldest = page_to_node_map.begin()->first;
+    int oldest_la = page_to_node_map.begin()->second.last_client_access;
+    for (map<string, struct LRU_node>::iterator it = page_to_node_map.begin(); it != page_to_node_map.end(); ++it){
+        if (it->second.last_client_access < oldest_la){
+            oldest = it -> first;
+            oldest_la = it -> second.last_client_access;
+        }
+    }
+    cout << oldest.c_str() << "is the oldest node which was accessed" << endl;
+    if (page_to_node_map[oldest].req_readpointer_map.size()>0){
+        cout << "SERVER[WARNING] the oldest node is currently in use, evition suspended" << endl;
+        return;
+    }
+    page_to_node_map.erase(oldest);
+    cout << "SERVER: evicted the oldest: " << oldest << endl;
+    return;
 }

@@ -9,10 +9,6 @@
 using namespace std;
 unsigned short int client_count; // global variable to store client count
 
-int MAXCLIENTS;
-int BACKLOG;
-
-
 int main(int argc, char *argv[]){
 
     //char ipstr[INET_ADDRSTRLEN];		//INET6_ADDRSTRLEN for IPv6
@@ -35,10 +31,7 @@ int main(int argc, char *argv[]){
 
     struct sockaddr_storage client_addr;
     socklen_t addr_len;
-
     client_count = 0;
-    //initCache();
-
     struct tm temptime,*utc;
     time_t rawtime;
 
@@ -56,7 +49,6 @@ int main(int argc, char *argv[]){
                     FD_CLR(i,&master);
                     FD_CLR(i,&write_fds);
                     close(i);
-                    
                     cached_doc_mnger.clifd_map.erase(i);
                     continue;
                 }
@@ -80,7 +72,7 @@ int main(int argc, char *argv[]){
                         cout << "SERVER: New Client at Socket: " << c_sockfd << endl;
                     }
                 }
-                else{  // so now,  we all processig, web sockfds, all i here, should be web sockfds
+                else{  // so now,  we all process web sockets,  all i here, should be web sockfds
                     if((num_bytes = recv(i,buf,sizeof(buf),0)) <=0){
                         if(num_bytes == 0){ // If received bytes are zero, it means client has disconnected, so remove its allocated resources
                         }
@@ -102,7 +94,7 @@ int main(int argc, char *argv[]){
                             memset(&temptime, 0, sizeof(struct tm));
                             
                             if (has_expiration_header){  // means expiration_str has value
-                                //strptime: convert  a  string  representation  of time to a time tm structure
+                                //strptime: convert a string  representation  of time to a time tm structure
                                 strptime(expiration_str.c_str(), "%a, %d %b %Y %H:%M:%S ", &temptime);
                                 cached_doc_mnger.webfd_map[i]->expr_time = mktime(&temptime);
                                 cached_doc_mnger.webfd_map[i]->expr_date = expiration_str;
@@ -113,15 +105,16 @@ int main(int argc, char *argv[]){
                                 cached_doc_mnger.webfd_map[i]->expr_time = mktime(utc);
                                 cached_doc_mnger.webfd_map[i]->expr_date = string(time_buf) + string("GMT");
                             }
-
                             time(&rawtime);
                             utc = gmtime(&rawtime);
                             strftime(time_buf, sizeof(time_buf), "%a, %d %b %Y %H:%M:%S ",utc);
+                            cached_doc_mnger.webfd_map[i]->last_client_access = mktime(utc);  // updating last access time
                             cout << "SERVER: Proxy Server Time: " << time_buf << "GMT" << endl;
                             cout << "SERVER: File Expires Time: " << cached_doc_mnger.webfd_map[i]->expr_date << endl;
+                            cout << "SERVER: Last Access is time above: " << cached_doc_mnger.webfd_map[i]->request.c_str() << endl;
 
                             if(has_304){
-                                //updating 
+                                //  This is just a 304 header 
                                 cout << "SERVER: temp file has 304" <<endl;
                                 cout << "SERVER: I just leave it there, will serve use core file" << endl;
                             }
@@ -135,6 +128,7 @@ int main(int argc, char *argv[]){
                             cached_doc_mnger.addReqSocketsOfNodeToWFD(*(cached_doc_mnger.webfd_map[i]), write_fds, master, i);
                         }
                         else{
+                            client_count--;
                             cout << "SERVER: Client " << i << ": Disconnected" << endl;		// check if cached_doc_mnger.req_sockfd disconnected
                         }
                     } else{// recved num_bytes > 0 situation
@@ -149,15 +143,17 @@ int main(int argc, char *argv[]){
                                 myfile2.write(buf,num_bytes);
                                 myfile2.close();
                             }
-                        } else {  //  this socket_fd is a req_sockfd
+                        } else {  //  this socket_fd is a req_sockfd, from client
                             struct info* temp_request_info;
                             temp_request_info = cached_doc_mnger.parse_http_request(buf,num_bytes);
                             string new_request(string(temp_request_info->host)+string(temp_request_info->file) );
                             cout << "SERVER: Client "<< i << ": GET Request: " << new_request << endl;
                             struct LRU_node * plru_node = cached_doc_mnger.allocOneNode(new_request,temp_request_info, i);
-                            cout << "lru_node.expr_time" <<plru_node->expr_time << endl;
+                            cout << "[DEBUG]lru_node.expr_time: " <<plru_node->expr_time << endl;
                             memset(buf,'\0' , 2048);
+                            
                             cached_doc_mnger.prepareAdaptiveRequestForWeb( plru_node, i, buf);
+                            
                             if (strlen(buf) == 0){
                                 FD_SET(i,&write_fds);  // this client_sock can be written back now
                                 cout << "SERVER: serving " << i <<   " use valid LRU_node " << endl;
@@ -173,14 +169,6 @@ int main(int argc, char *argv[]){
                                 touch.close();
                             FD_SET(new_web_socket,&master);
                             cached_doc_mnger.webfd_map[new_web_socket] = &(cached_doc_mnger.page_to_node_map[new_request]);
-                            
-//                            cached_doc_mnger.webfd_map[new_web_socket]->expr_time =5;
-//                            if ( cached_doc_mnger.webfd_map[new_web_socket]->expr_time !=cached_doc_mnger.page_to_node_map[new_request].expr_time ){
-//                                cout << "!!!!!!!!" << endl;
-//                            }else {
-//                                cout << "........." << endl;
-//                            }
-                            
                             if(new_web_socket > fdmax)
                                 fdmax = new_web_socket;
                             cout << "SERVER: Fetcher started at socket " << new_web_socket << ": for client " << i << endl;

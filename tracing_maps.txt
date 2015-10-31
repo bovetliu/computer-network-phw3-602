@@ -1,8 +1,11 @@
+
+// clifd_map mainly responsible for linking writing socket with LRU_node
 map<int, struct LRU_node> clifd_map;
   add at :addReqSocketsOfNodeToWFD     ( fetcher finishes its works, now able to send)
   add at :prepareAdaptiveRequestForWeb (new request coming in, and non expired)
   erase at: sendPartOfFileToRequester (for one client sockfd, it finished, remove it from clifd_map)
-  
+
+//webfd_map mainly responsible for linking listening web socket with LRU_node
 webfd_map
-  add: when new request, , or expired request
-  erase prepareAdaptiveRequestForWeb (since, web_sock_fd finished recving, no need to keep)
+  add at main(...): when new request, or expired request, which need recv from web server again( even just a 304 header) 
+  erase at: addReqSocketsOfNodeToWFD (since, web_sock_fd finished recving, no need to keep, and server is going to feed fetched file back to client)

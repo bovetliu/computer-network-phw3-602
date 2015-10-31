@@ -13,13 +13,17 @@ The server can do Condition-GET, expiration check.
 
 brief architecture of this code
 There is not much to say about client.
-proxy has two dependency class, one is Utility of is CachedDocManager.
-Utility is basically one static class(all methods are static), CachedDocManager is to helpe main() manage the LRU_nodes. 
+proxy has two dependency classes, one is Utility, the other one is CachedDocManager.
+Utility is basically one static class(all methods are static), CachedDocManager is to help main() manage the LRU_nodes. 
 
 For CachedDocManager the core properties are following:
+
     map<string, struct LRU_node> page_to_node_map;
+    
     map<int, struct LRU_node *> webfd_map;  
+    
     map<int, struct LRU_node *> clifd_map;  // mainly for write_fds
+    
 
 page_to_node_map stores LRU_node keyed by requests URL, the CachedDocManager only keeps 10 URL and its file cached. 
 webfd_map linking web sockets with LRU_node is page_to_node_map. So every time when one of web sockets is ready, 

@@ -2,7 +2,10 @@
 
 CachedDocManager::CachedDocManager()
 {
-
+    for (int i = 0; i < MAX_NODE + 5; i++){
+        names_que.push_back("node_"+castNumberToString(i));
+    }
+    
 }
 
 CachedDocManager::~CachedDocManager()
@@ -113,7 +116,8 @@ struct LRU_node * CachedDocManager::allocOneNode( string request, struct info * 
     new_node.page_name   = string(tempinfo->file);
     new_node.request = string(tempinfo->host)+ string(tempinfo->file);
     new_node.req_readpointer_map[client_sock_fd] = 0;
-    new_node.node_name = this->castNumberToString( page_to_node_map.size() );
+    new_node.node_name = string(names_que.front());
+    names_que.pop_front();// occupy one
     new_node.in_use = 1;
     new_node.expr_time = 0 ;
     new_node.last_client_access = 0;
@@ -166,23 +170,26 @@ void CachedDocManager::addReqSocketsOfNodeToWFD(struct LRU_node & target_nd, fd_
 // private method
 void CachedDocManager::evictOldestLastAccess(){
     if (page_to_node_map.size()< MAX_NODE){
-        cout << "LRC caches size: " << page_to_node_map.size() << ", No need of eviction" << endl;
+        cout << "LRU caches size: " << page_to_node_map.size() << ", No need of eviction" << endl;
         return;
     }
     // iterate map find the oldest last access node's key:string
-    string oldest = page_to_node_map.begin()->first;
+    string oldest;
     int oldest_la = page_to_node_map.begin()->second.last_client_access;
     for (map<string, struct LRU_node>::iterator it = page_to_node_map.begin(); it != page_to_node_map.end(); ++it){
-        if (it->second.last_client_access < oldest_la){
+        if (it->second.last_client_access <= oldest_la && it->second.req_readpointer_map.size() == 0){
             oldest = it -> first;
             oldest_la = it -> second.last_client_access;
         }
     }
     cout << oldest.c_str() << "is the oldest node which was accessed" << endl;
-    if (page_to_node_map[oldest].req_readpointer_map.size()>0){
-        cout << "SERVER[WARNING] the oldest node is currently in use, evition suspended" << endl;
+    if (oldest.length() == 0) {
+        // here has potential bug in extremly busy situation, there are only five backup nodes available,
+        cout << "SERVER: currently all the nodes are occupied by thread, cannot evict any" << endl;
         return;
     }
+    
+    names_que.push_back(page_to_node_map[oldest].node_name);  // collect this name for future use
     page_to_node_map.erase(oldest);
     cout << "SERVER: evicted the oldest: " << oldest << endl;
     return;

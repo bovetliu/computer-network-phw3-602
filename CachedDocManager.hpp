@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <unistd.h> 
 #include <map>
+#include <deque>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -42,6 +43,7 @@ struct LRU_node{
 class CachedDocManager
 {
 private:
+    deque<string> names_que;
     void evictOldestLastAccess ();
 public:
 

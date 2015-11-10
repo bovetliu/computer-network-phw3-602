@@ -30,7 +30,7 @@ webfd_map linking web sockets with LRU_node is page_to_node_map. So every time w
 programming can use this websocket to quickly find the corresponding LRU_node, and do relevant file operation(writing)
 
 The similar things apply to clifd_map, (client file descriptor map), when LRU_node is ready to send back to client. 
-the cient socket will be added to "read_fds" set, then programming can quickly find corresponding LRU_node, when client socket
+the cient socket will be added to "write_fds" set, then programming can quickly find corresponding LRU_node, when client socket
 is ready to be written.
 
 

@@ -44,9 +44,9 @@ The similar things apply to `clifd_map`, (client file descriptor map). When cont
 
 
 Every `LRU_node` has one `req_readpointer_map`, it is a `map<int,int>`, which is actually is mapping `<socket, file pos>`.   
-The `req_readpointer_map` has three usages, 
-1. use `req_readpointer_map.size()` to check how many clients are on this `LRU_node`.
-2. use file pos to track sending progress of each requesting client.
+The `req_readpointer_map` has three usages,   
+1. use `req_readpointer_map.size()` to check how many clients are on this `LRU_node`.  
+2. use file pos to track sending progress of each requesting client.  
 3. `size() == 0` means the LRU_node is idle, eviction method: `evictOldestLastAccess()`  will use it.   
 
 Main logic is like following:

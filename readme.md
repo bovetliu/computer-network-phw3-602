@@ -40,7 +40,7 @@ struct LRU_node{
 
 `page_to_node_map` stores `LRU_node` keyed by requests URL, the `CachedDocManager` only keeps 10 URLs and its file cached.   
 `webfd_map` linking web sockets to `LRU_node` which is stored in  `page_to_node_map`.   
-The similar things apply to `clifd_map`, (client file descriptor map). When content of `LRU_node` is ready to be sent back to client.  The cient socket will be added to `write_fds` set, then the program can quickly find corresponding `LRU_node` using `clifd_map`.   
+The similar things apply to `clifd_map`, (client file descriptor map). When content of `LRU_node` is ready to be sent back to client.  The cient socket in key set of `req_readpointer_map` will be added to `write_fds` set, then the program can quickly find corresponding `LRU_node` using `clifd_map`.   
 
 
 Every `LRU_node` has one `req_readpointer_map`, it is a `map<int,int>`, which is actually is mapping `<socket, file pos>`.   
